@@ -36,3 +36,12 @@ Thumbs.db
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+reminders.db
+*.sqlite
+logs
+*.log
+npm-debug.log*
+package-json.lock
+node_modules.bun
+coverage
+.npm
