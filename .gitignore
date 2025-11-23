@@ -25,7 +25,7 @@ yarn-debug.log*
 # Crucial for security—do NOT commit these!
 .env
 .env.*
-!.env.example # Keep example files tracked if needed
+!.env.example
 
 # Operating System & Editor Files
 .DS_Store
