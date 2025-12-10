@@ -47,5 +47,5 @@ export const updateReminderRoute = ({ params: { id }, body, set }: Context) => {
     };
   }
 
-  return { id, ...r };
+  return { id: Number(id), ...r };
 };

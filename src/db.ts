@@ -20,12 +20,26 @@ db.run(`
   )
 `);
 
-// try {
-//   db.run("ALTER TABLE reminders ADD COLUMN last_alert_time TEXT");
-//   console.log("Migration: Added column 'last_alert_time'.");
-// } catch (e) {}
+// db.run(`
+//   CREATE TABLE IF NOT EXISTS reminder_mode (
+//     id INTEGER PRIMARY KEY AUTOINCREMENT,
+//     mode TEXT NOT NULL,
+//     address TEXT NOT NULL,
+//     -- Ensure the combination of mode and address is unique
+//     UNIQUE (mode, address)
+//   )
+// `);
 
-// try {
-//   db.run("ALTER TABLE reminders ADD COLUMN is_active INTEGER DEFAULT 1");
-//   console.log("Migration: Added column 'is_active'.");
-// } catch (e) {}
+// db.run(`
+//   CREATE TABLE IF NOT EXISTS reminder_mode_link (
+//     reminder_id INTEGER NOT NULL,
+//     mode_id INTEGER NOT NULL,
+//     PRIMARY KEY (reminder_id, mode_id),
+//     FOREIGN KEY (reminder_id)
+//       REFERENCES reminders (id)
+//       ON DELETE CASCADE,
+//     FOREIGN KEY (mode_id)
+//       REFERENCES reminder_mode (id)
+//       ON DELETE CASCADE
+//   )
+// `);
