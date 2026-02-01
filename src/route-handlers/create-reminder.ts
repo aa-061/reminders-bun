@@ -55,12 +55,14 @@ export const createReminderRoute = ({ body, set }: Context) => {
   if (insertedId !== undefined && insertedId > 0) {
     set.status = 201;
 
+    console.log(`Successfully created a new reminder: ${r.title}!`);
+
     return { id: insertedId, ...r };
   } else {
     // Fallback path: Log the error and return 201 with the reminder data,
     // assigning a temporary ID (0) so the server doesn't crash.
     console.error(
-      "Critical Runtime Error: Manual last_insert_rowid() failed. Returning ID 0 as fallback."
+      "Critical Runtime Error: Manual last_insert_rowid() failed. Returning ID 0 as fallback.",
     );
     set.status = 201;
     return { id: 0, ...r };

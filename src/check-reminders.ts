@@ -8,7 +8,6 @@ const SCHEDULER_INTERVAL = Number(process.env.SCHEDULER_INTERVAL) || 3000;
 export const checkReminders = async () => {
   const reminders = getReminders();
   const now = new Date();
-  // console.log("reminders = ", reminders);
 
   for (const r of reminders) {
     // Only process reminders that are active
