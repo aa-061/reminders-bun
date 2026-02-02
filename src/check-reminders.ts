@@ -1,7 +1,11 @@
-import cron_parse from "cron-parser";
 import { sendEmail } from "./email-handlers";
 import { getReminders } from "./route-handlers";
 import { deactivateReminder, updateLastAlertTime } from "./utils";
+import {
+  shouldDeactivateOneTime,
+  shouldDeactivateRecurring,
+  calculateNextEventTime,
+} from "./scheduler/helpers";
 
 const SCHEDULER_INTERVAL = Number(process.env.SCHEDULER_INTERVAL) || 3000;
 
@@ -19,53 +23,37 @@ export const checkReminders = async () => {
 
     if (r.is_recurring && r.recurrence) {
       // Calculate next occurrence time for recurring events
-      try {
-        const interval = cron_parse.parse(r.recurrence, { currentDate: now });
-        eventTime = interval.next().toDate();
+      const nextEventTime = calculateNextEventTime(r, now);
 
-        // --- DEACTIVATION LOGIC FOR RECURRING EVENTS ---
-        if (r.end_date) {
-          const endDate = new Date(r.end_date);
-
-          if (eventTime.getTime() > endDate.getTime()) {
-            // If the *next* occurrence is past the end_date, deactivate the reminder.
-            console.log(
-              `DEACTIVATING RECURRING REMINDER: '${r.title}' as it passed end_date.`,
-            );
-            deactivateReminder(r.id!, r.title);
-            continue; // Skip processing this reminder further in this cycle
-          }
-        }
-        // --- END DEACTIVATION LOGIC ---
-      } catch (err) {
-        console.error(`Error parsing cron for ${r.title}`, err);
+      if (!nextEventTime) {
+        // Cron parsing failed, skip this reminder
         continue;
       }
+
+      // Check if should deactivate using the already-calculated nextEventTime
+      const { shouldDeactivate, reason } = shouldDeactivateRecurring(
+        r,
+        nextEventTime,
+      );
+      if (shouldDeactivate) {
+        console.log(
+          `DEACTIVATING RECURRING REMINDER: '${r.title}' - ${reason}`,
+        );
+        deactivateReminder(r.id!, r.title);
+        continue;
+      }
+
+      eventTime = nextEventTime;
     } else {
+      // Check if one-time reminder should be deactivated
+      const { shouldDeactivate } = shouldDeactivateOneTime(r, now);
+      if (shouldDeactivate) {
+        deactivateReminder(r.id!, r.title);
+        continue;
+      }
+
       // Use the fixed date for one-time events
       eventTime = new Date(r.date);
-
-      // If a one-time event has already alerted, deactivate it and skip.
-      if (r.last_alert_time) {
-        // --- DEACTIVATION LOGIC FOR ONE-TIME EVENTS ---
-        console.log(
-          `DEACTIVATING ONE-TIME REMINDER: '${r.title}' as it has already alerted.`,
-        );
-        deactivateReminder(r.id!, r.title);
-        continue; // Skip processing this reminder further in this cycle
-        // --- END DEACTIVATION LOGIC ---
-      }
-
-      // Stale one-time event check (passed due)
-      // If the event time is more than an hour in the past and it has never alerted, consider it stale.
-      if (eventTime.getTime() < now.getTime() - 60 * 60 * 1000) {
-        // If event was missed by more than an hour and never alerted, deactivate to prevent stale check.
-        deactivateReminder(r.id!, r.title);
-        console.log(
-          `DEACTIVATING STALE ONE-TIME REMINDER: '${r.title}' as it was missed an hour ago and never alerted.`,
-        );
-        continue;
-      }
     }
 
     // Now, calculate the alert time based on the event time and offsets
