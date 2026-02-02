@@ -1,27 +1,34 @@
 import type { TReminder } from "../../schemas";
 import { SCHEDULER_CONFIG } from "../config";
 
-// Determines if a one-time reminder should be deactivated
+/**
+ * Determines if a one-time reminder should be deactivated.
+ * Checks if the reminder has already alerted or is stale (missed by >1 hour).
+ *
+ * @param reminder The reminder to check
+ * @param now The current date/time
+ * @returns Object with shouldDeactivate flag and optional reason
+ */
 export function shouldDeactivateOneTime(
   reminder: TReminder,
   now: Date,
-): { shouldDeactivate: boolean } {
+): { shouldDeactivate: boolean; reason?: string } {
   if (reminder.last_alert_time) {
-    console.log(
-      `DEACTIVATING ONE-TIME REMINDER: '${reminder.title}' as it has already alerted.`,
-    );
-
-    return { shouldDeactivate: true };
+    return {
+      shouldDeactivate: true,
+      reason: "one-time reminder has already alerted",
+    };
   }
 
   const eventTime = new Date(reminder.date);
   const timePastDue = now.getTime() - eventTime.getTime();
 
   if (timePastDue > SCHEDULER_CONFIG.STALE_THRESHOLD_MS) {
-    console.log(
-      `DEACTIVATING STALE ONE-TIME REMINDER: One-time reminder '${reminder.title}' missed by ${Math.floor(timePastDue / 1000)} seconds and never alerted`,
-    );
-    return { shouldDeactivate: true };
+    const secondsPastDue = Math.floor(timePastDue / 1000);
+    return {
+      shouldDeactivate: true,
+      reason: `missed by ${secondsPastDue} seconds (>1 hour stale)`,
+    };
   }
 
   return { shouldDeactivate: false };

@@ -1,3 +1,4 @@
+import type { TReminder } from "./schemas";
 import { getReminders } from "./route-handlers";
 import { deactivateReminder, updateLastAlertTime } from "./utils";
 import {
@@ -7,75 +8,92 @@ import {
   getAlertsToFire,
 } from "./scheduler/helpers";
 import { sendNotifications } from "./scheduler/notification-service";
+import { SCHEDULER_CONFIG } from "./scheduler/config";
 
-const SCHEDULER_INTERVAL = Number(process.env.SCHEDULER_INTERVAL) || 3000;
-
-export const checkReminders = async () => {
+/**
+ * Main scheduler function that checks all active reminders.
+ * Runs on a fixed interval (default: 3 seconds).
+ */
+export async function checkReminders(): Promise<void> {
   const reminders = getReminders();
   const now = new Date();
 
   for (const reminder of reminders) {
-    // Only process reminders that are active
-    if (!reminder.is_active) continue;
+    await processReminder(reminder, now);
+  }
+}
 
-    if (!reminder.alerts || reminder.alerts.length === 0) continue;
+/**
+ * Processes a single reminder through three clear steps:
+ * 1. Calculate next event time
+ * 2. Check if reminder should be deactivated
+ * 3. Process alerts
+ */
+async function processReminder(reminder: TReminder, now: Date): Promise<void> {
+  // Skip inactive reminders
+  if (!reminder.is_active) return;
 
-    let eventTime: Date;
+  // Skip reminders without alerts
+  if (!reminder.alerts || reminder.alerts.length === 0) return;
 
-    if (reminder.is_recurring && reminder.recurrence) {
-      // Calculate next occurrence time for recurring events
-      const nextEventTime = calculateNextEventTime(reminder, now);
+  // Step 1: Calculate next event time
+  const eventTime = calculateNextEventTime(reminder, now);
+  if (!eventTime) return;
 
-      if (!nextEventTime) {
-        // Cron parsing failed, skip this reminder
-        continue;
-      }
+  // Step 2: Check if reminder should be deactivated
+  const deactivation = checkDeactivation(reminder, eventTime, now);
+  if (deactivation.shouldDeactivate) {
+    deactivateReminder(reminder.id!, reminder.title);
+    console.log(`DEACTIVATING: '${reminder.title}' - ${deactivation.reason}`);
+    return;
+  }
 
-      // Check if should deactivate using the already-calculated nextEventTime
-      const { shouldDeactivate, reason } = shouldDeactivateRecurring(
-        reminder,
-        nextEventTime,
-      );
-      if (shouldDeactivate) {
-        console.log(
-          `DEACTIVATING RECURRING REMINDER: '${reminder.title}' - ${reason}`,
-        );
-        deactivateReminder(reminder.id!, reminder.title);
-        continue;
-      }
+  // Step 3: Process alerts
+  await processAlerts(reminder, eventTime, now);
+}
 
-      eventTime = nextEventTime;
-    } else {
-      // Check if one-time reminder should be deactivated
-      const { shouldDeactivate } = shouldDeactivateOneTime(reminder, now);
-      if (shouldDeactivate) {
-        deactivateReminder(reminder.id!, reminder.title);
-        continue;
-      }
+/**
+ * Determines if a reminder should be deactivated based on its type.
+ * Routes to the appropriate deactivation check (one-time vs recurring).
+ */
+function checkDeactivation(
+  reminder: TReminder,
+  eventTime: Date,
+  now: Date,
+): { shouldDeactivate: boolean; reason?: string } {
+  if (reminder.is_recurring && reminder.recurrence) {
+    return shouldDeactivateRecurring(reminder, eventTime);
+  }
 
-      // Use the fixed date for one-time events
-      eventTime = new Date(reminder.date);
-    }
+  return shouldDeactivateOneTime(reminder, now);
+}
 
-    // Check which alerts should fire right now
-    const alertsToFire = getAlertsToFire(
-      reminder,
-      eventTime,
-      now,
-      SCHEDULER_INTERVAL,
+/**
+ * Processes alerts for a reminder by checking which alerts should fire
+ * and sending notifications to all contacts.
+ */
+async function processAlerts(
+  reminder: TReminder,
+  eventTime: Date,
+  now: Date,
+): Promise<void> {
+  // Check which alerts should fire right now
+  const alertsToFire = getAlertsToFire(
+    reminder,
+    eventTime,
+    now,
+    SCHEDULER_CONFIG.INTERVAL_MS,
+  );
+
+  // Send notifications if any alerts should fire
+  if (alertsToFire.length > 0) {
+    console.log(
+      `ALERT TRIGGERED for '${reminder.title}'! Sending notifications...`,
     );
 
-    // Process any alerts that should fire
-    if (alertsToFire.length > 0) {
-      console.log(
-        `ALERT TRIGGERED for '${reminder.title}'! Sending notifications...`,
-      );
+    await sendNotifications(reminder, reminder.reminders);
 
-      // Send notifications to all contacts
-      await sendNotifications(reminder, reminder.reminders);
-
-      // Acknowledge the alert by setting the last_alert_time to NOW
-      updateLastAlertTime(reminder.id!, now);
-    }
+    // Update last alert time to prevent duplicate alerts
+    updateLastAlertTime(reminder.id!, now);
   }
-};
+}
