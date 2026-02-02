@@ -1,4 +1,6 @@
 import type { TReminder } from "../../schemas";
+import { hasAlreadyAlertedForEvent } from "./hasAlreadyAlertedForEvent";
+import { SCHEDULER_CONFIG } from "../config";
 
 type Alert = {
   id: string;
@@ -29,16 +31,12 @@ export function getAlertsToFire(
 
     const diff = now.getTime() - alertTime.getTime();
 
-    // Check if the alert was triggered in the last cycle (0s <= diff < intervalMs)
-    if (diff >= 0 && diff < intervalMs) {
-      // Final check: If recurring, make sure we haven't alerted for this specific event time yet
-      if (reminder.is_recurring && reminder.last_alert_time) {
-        const lastAlertTime = new Date(reminder.last_alert_time);
-
-        if (lastAlertTime.getTime() >= alertTime.getTime()) {
-          // Already alerted for this recurrence instance
-          continue;
-        }
+    // Check if the alert is due (past or present) but not too stale (< 1 hour past due)
+    if (diff >= 0 && diff < SCHEDULER_CONFIG.STALE_THRESHOLD_MS) {
+      // Check if we've already alerted for this event instance
+      if (hasAlreadyAlertedForEvent(reminder, alertTime)) {
+        // Already alerted for this event instance
+        continue;
       }
 
       // This alert should fire
