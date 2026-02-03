@@ -104,10 +104,9 @@ export const DeleteReminderOutputSchema = z.object({
     .string()
     .optional()
     .describe("Error message if the delete operation failed"),
-  deletedReminder: z
-    .array(ReminderSchema)
-    .optional()
-    .describe("The reminder that was deleted"),
+  deletedReminder: ReminderSchema.optional().describe(
+    "The reminder that was deleted",
+  ),
 });
 
 export type TDeleteReminderOutput = z.infer<typeof DeleteReminderOutputSchema>;
@@ -118,6 +117,10 @@ export const DeleteRemindersBulkOutputSchema = z.object({
     .string()
     .optional()
     .describe("Error message if the delete operation failed"),
+  deletedCount: z
+    .number()
+    .optional()
+    .describe("Number of reminders that were deleted"),
 });
 
 export type TDeleteRemindersBulkOutput = z.infer<

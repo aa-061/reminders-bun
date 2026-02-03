@@ -1,6 +1,6 @@
 import { type Context } from "elysia";
-import { db } from "../db";
 import type { TDeleteRemindersBulkOutput } from "../schemas";
+import { getReminderRepository } from "../repositories";
 
 export const deleteRemindersBulkRoute = ({
   request,
@@ -15,25 +15,27 @@ export const deleteRemindersBulkRoute = ({
       );
     }
 
-    const ids = idsParam
-      .split(",")
-      .map((idStr) => Number(idStr.trim()))
-      .filter((n) => !Number.isNaN(n));
+    let ids: number[] = [];
 
-    // // This is an alternative way of deleting in bulk.
-    // // leaving it commented out just in case if WHERE id IN starts giving hard time
-    // const stmt = db.prepare("DELETE FROM reminders WHERE id = ?");
-    // for (const id of ids){
-    //   stmt.run(id);
-    // }
+    if (/^\d+-\d+$/.test(idsParam)) {
+      const [start, end] = idsParam.split("-").map(Number);
 
-    const placeholders = ids.map(() => "?").join(",");
-    const sql = `DELETE FROM reminders WHERE id IN (${placeholders})`;
-    const stmt = db.prepare(sql);
-    stmt.run(...ids);
+      for (let i = start; i <= end; i++) {
+        ids.push(i);
+      }
+    } else {
+      ids = idsParam
+        .split(",")
+        .map((idStr) => Number(idStr.trim()))
+        .filter((n) => !Number.isNaN(n));
+    }
+
+    const repo = getReminderRepository();
+    const deletedCount = repo.deleteBulk(ids);
 
     return {
       status: "success",
+      deletedCount,
     };
   } catch (error) {
     set.status = 500;

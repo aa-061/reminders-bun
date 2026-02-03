@@ -1,10 +1,10 @@
 import { type Context } from "elysia";
-import { db } from "../db";
 import type { TCreateReminderInput } from "../schemas";
 import {
   scheduleReminderAlert,
   scheduleRecurringReminder,
 } from "../qstash/scheduler";
+import { getReminderRepository } from "../repositories";
 
 export const createReminderRoute = async ({ body, set }: Context) => {
   const r = body as TCreateReminderInput;
@@ -16,35 +16,12 @@ export const createReminderRoute = async ({ body, set }: Context) => {
     };
   }
 
-  const stmt = db.prepare(`
-      INSERT INTO reminders (title, date, location, description, reminders, alerts, is_recurring, recurrence, start_date, end_date, last_alert_time, is_active)
-      VALUES ($title, $date, $location, $description, $reminders, $alerts, $is_recurring, $recurrence, $start_date, $end_date, NULL, $is_active)
-    `);
-
-  const bindings = {
-    $title: r.title,
-    $date: r.date,
-    $location: r.location ? JSON.stringify(r.location) : null,
-    $description: r.description,
-    $reminders: JSON.stringify(r.reminders ?? []),
-    $alerts: JSON.stringify(r.alerts ?? []),
-    $is_recurring: r.is_recurring ? 1 : 0,
-    $recurrence: r.recurrence ?? null,
-    $start_date: r.start_date ?? null,
-    $end_date: r.end_date ?? null,
-    $is_active: r.is_active === false ? 0 : 1,
-  };
-
   let insertedId: number | undefined;
 
   try {
-    stmt.run(bindings as any);
-
-    // Manually query the last inserted ID using the dedicated function
-    const idResult = db.query("SELECT last_insert_rowid() as id").get() as {
-      id: number;
-    };
-    insertedId = idResult?.id;
+    const repo = getReminderRepository();
+    const { id } = repo.create(r);
+    insertedId = id;
   } catch (dbError) {
     // Catch and log the actual database error
     console.error("Database Insertion Error:", dbError);

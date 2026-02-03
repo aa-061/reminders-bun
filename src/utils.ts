@@ -1,14 +1,17 @@
-import { db } from "./db";
+import { getReminderRepository } from "./repositories";
 
-// Helper to update the last_alert_time
 export const updateLastAlertTime = (id: number, time: Date) => {
-  db.run("UPDATE reminders SET last_alert_time = ? WHERE id = ?", [
-    time.toISOString(),
-    id,
-  ]);
+  const repo = getReminderRepository();
+  const updated = repo.updateLastAlertTime(id, time);
+  if (!updated) {
+    console.warn(`Failed to update last_alert_time for reminder ${id}`);
+  }
 };
 
-// Helper to deactivate a reminder
 export const deactivateReminder = (id: number, title: string) => {
-  db.run("UPDATE reminders SET is_active = 0 WHERE id = ?", [id]);
+  const repo = getReminderRepository();
+  const deactivated = repo.deactivate(id);
+  if (!deactivated) {
+    console.warn(`Failed to deactivate reminder '${title}' (id: ${id})`);
+  }
 };
