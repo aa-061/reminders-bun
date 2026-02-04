@@ -25,7 +25,7 @@ if (USE_POLLING || !process.env.QSTASH_TOKEN) {
   console.log("QStash scheduler active - daily cleanup scheduled");
 }
 
-const app = new Elysia()
+export const app = new Elysia()
   .use(swagger(s.swaggerMainConfig))
   .use(
     cors({

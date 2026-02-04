@@ -2,6 +2,13 @@
   "name": "reminders-bun",
   "module": "index.ts",
   "type": "module",
+  "scripts": {
+    "dev": "bun run --watch index.ts",
+    "start": "bun run index.ts",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/nodemailer": "^7.0.4"
