@@ -1,26 +1,31 @@
 import { Elysia } from "elysia";
+import { swagger, type ElysiaSwaggerConfig } from "@elysiajs/swagger";
 import { checkReminders } from "./src/check-reminders";
 import { unprotectedRoutes } from "./src/constants";
 import { routes } from "./src/route-handlers";
 import { cors } from "@elysiajs/cors";
 import { webhookReminderAlertRoute } from "./src/route-handlers/webhook-reminder-alert";
+import {
+  swaggerActiveReminders,
+  swaggerAllReminders,
+  swaggerCreateReminder,
+  swaggerGetReminderById,
+  swaggerMainConfig,
+  swaggerUpdateReminder,
+  swaggerDeleteReminder,
+  swaggerDeleteRemindersBulk,
+  swaggerWebhookAlert,
+} from "./src/swagger";
 
 const API_KEY = process.env.APP_API_KEY;
 const PORT = process.env.APP_PORT;
-const SCHEDULER_INTERVAL = Number(process.env.SCHEDULER_INTERVAL) || 3000;
-const USE_POLLING = process.env.USE_POLLING === "true";
-
-// Only use polling in development when QStash isn't configured
-if (USE_POLLING || !process.env.QSTASH_TOKEN) {
-  // Start Scheduler (runs every 3s)
-  setInterval(checkReminders, SCHEDULER_INTERVAL);
-  console.log(`Polling scheduler started (interval: ${SCHEDULER_INTERVAL}ms)`);
-  console.log("Note: In production, use QStash instead of polling");
-} else {
-  console.log("QStash scheduler active - polling disabled");
-}
+// Run once on startup — deactivates stale reminders and fires any due alerts
+// that QStash missed. On Render free tier this is a cold start on each wake-up,
+// so it runs once per cycle without keeping the server alive via setInterval.
+checkReminders();
 
 const app = new Elysia()
+  .use(swagger(swaggerMainConfig))
   .use(
     cors({
       origin: "http://localhost:3000", // Allow your React app
@@ -28,7 +33,7 @@ const app = new Elysia()
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     }),
   )
-  .onError(({ code, error, set }) => {
+  .onError(({ error, set }) => {
     console.error(error);
     set.status = 500;
 
@@ -70,14 +75,22 @@ const app = new Elysia()
       return { error: "Invalid or missing API Key" };
     }
   })
-  .get("/reminders", routes.getActiveRemindersRoute)
-  .get("/reminders/all", routes.getAllRemindersRoute)
-  .get("/reminders/:id", routes.getReminderByIdRoute)
-  .post("/reminders", routes.createReminderRoute)
-  .post("/webhooks/reminder-alert", webhookReminderAlertRoute)
-  .put("/reminders/:id", routes.updateReminderRoute)
-  .delete("/reminders/:id", routes.deleteReminderRoute)
-  .delete("/reminders/bulk", routes.deleteRemindersBulkRoute)
+  .get("/reminders", routes.getActiveRemindersRoute, swaggerActiveReminders)
+  .get("/reminders/all", routes.getAllRemindersRoute, swaggerAllReminders)
+  .get("/reminders/:id", routes.getReminderByIdRoute, swaggerGetReminderById)
+  .post("/reminders", routes.createReminderRoute, swaggerCreateReminder)
+  .put("/reminders/:id", routes.updateReminderRoute, swaggerUpdateReminder)
+  .delete("/reminders/:id", routes.deleteReminderRoute, swaggerDeleteReminder)
+  .delete(
+    "/reminders/bulk",
+    routes.deleteRemindersBulkRoute,
+    swaggerDeleteRemindersBulk,
+  )
+  .post(
+    "/webhooks/reminder-alert",
+    webhookReminderAlertRoute,
+    swaggerWebhookAlert,
+  )
   .listen(PORT || 8080);
 
 console.log(`Server is running at ${app.server?.hostname}:${app.server?.port}`);

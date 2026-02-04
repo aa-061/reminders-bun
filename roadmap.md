@@ -1392,6 +1392,98 @@ Recommended order for a secure deployment:
 
 ---
 
+---
+
+## Phase 7: API Documentation with Swagger/OpenAPI ✅ COMPLETE
+
+**Priority: MEDIUM** | **Risk: LOW** | **Complexity: LOW**
+
+### Goal
+
+Provide interactive API documentation that developers and testing tools can use without manual curl commands.
+
+### What Was Implemented
+
+1. **Swagger Plugin Integration**
+   - Installed `@elysiajs/swagger` package
+   - Configured OpenAPI 3.0.3 specification
+   - Added API key authentication scheme for Swagger UI
+
+2. **Comprehensive Route Documentation**
+   - All 8 API endpoints fully documented with:
+     - Clear summaries and descriptions
+     - Request/response examples with realistic data
+     - Parameter documentation
+     - Error response codes
+   - Routes tagged by category (Reminders, Webhooks)
+
+3. **API Key Support in Swagger UI**
+   - Swagger security scheme configured for `x-api-key` header
+   - Users can authorize in Swagger UI by:
+     - Clicking lock icon (top right)
+     - Entering their `APP_API_KEY` value
+     - Testing authenticated endpoints directly
+
+4. **Access Points**
+   - **Interactive UI**: `http://localhost:8080/swagger`
+   - **OpenAPI JSON**: `http://localhost:8080/swagger/json`
+   - **Downloadable spec**: For use with API client generators
+
+### Files Modified
+
+- `index.ts` - Added Swagger configuration with security scheme and comprehensive route documentation
+- `CLAUDE.md` - Added Swagger integration section and notes about keeping documentation in sync
+- `package.json` - Added `@elysiajs/swagger@1.3.1` dependency
+
+### Important Notes for Future Development
+
+**Critical: Keep Swagger in Sync with API Changes**
+
+Whenever you modify the API (add, remove, or change routes):
+
+1. Update the route handler in `index.ts` with the `detail` property
+2. Include:
+   - `tags`: ["Reminders"] or ["Webhooks"]
+   - `summary`: One-line description
+   - `description`: Detailed explanation
+   - `parameters`: For path/query parameters
+   - `requestBody`: With realistic example (for POST/PUT)
+   - `responses`: All possible HTTP status codes with examples
+
+3. Test by visiting `http://localhost:8080/swagger` to verify the changes appear
+
+Example structure:
+```typescript
+.post("/reminders", routes.createReminderRoute, {
+  detail: {
+    tags: ["Reminders"],
+    summary: "Create a new reminder",
+    description: "Creates a new reminder...",
+    requestBody: { /* ... */ },
+    responses: { /* ... */ },
+  },
+})
+```
+
+### Benefits
+
+✅ Interactive API testing without curl/Postman
+✅ Self-documenting code - examples stay in one place
+✅ API key testing built-in to Swagger UI
+✅ OpenAPI spec for code generators and API clients
+✅ Developer-friendly discovery of all endpoints
+✅ Automatic documentation synchronization with code
+
+### Sample Data Used
+
+Documentation includes realistic examples:
+- **One-time reminders**: Doctor appointments, grocery shopping
+- **Recurring reminders**: Team meetings with cron expressions
+- **Multiple alerts**: Different notification times (email, SMS, push)
+- **Various reminder types**: With locations, descriptions, and recurrence patterns
+
+---
+
 ## Sources and References
 
 - [QStash Announcement](https://upstash.com/blog/qstash-announcement)
@@ -1399,3 +1491,5 @@ Recommended order for a secure deployment:
 - [QStash Pricing](https://upstash.com/pricing/qstash)
 - [Render.com Free Tier](https://community.render.com/t/do-web-services-on-a-free-tier-go-to-sleep-after-some-time-inactive/3303)
 - [Email Scheduler with QStash](https://upstash.com/blog/email-scheduler-qstash)
+- [Elysia Swagger Plugin](https://elysiajs.com/plugins/swagger)
+- [OpenAPI 3.0 Specification](https://spec.openapis.org/oas/v3.0.3)

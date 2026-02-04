@@ -66,6 +66,14 @@ This is a **Bun-first TypeScript server** built with **Elysia.js** for managing 
 **Authentication:**
 - API key middleware checks `x-api-key` header for all routes
 - Unprotected routes configurable in `src/constants.ts` (currently none)
+- API Key is configured via `APP_API_KEY` environment variable
+
+**API Documentation (Swagger/OpenAPI):**
+- Automatic interactive API documentation generated with `@elysiajs/swagger`
+- Available at `http://localhost:8080/swagger` (UI) and `http://localhost:8080/swagger/json` (OpenAPI spec)
+- API key testing: You can paste your `APP_API_KEY` into the Swagger UI authorization button (lock icon) to test authenticated endpoints
+- Includes detailed examples for all endpoints with realistic sample data
+- **IMPORTANT:** When adding new routes or modifying existing endpoints, update the route details in `index.ts` (see swagger configuration section). Swagger must be kept in sync with API changes.
 
 ### Data Model
 
@@ -131,6 +139,39 @@ Optional:
 6. **UTC dates everywhere** - All dates stored and processed in UTC ISO format
 7. **Type safety first** - TypeScript strict mode enabled, Zod provides runtime validation
 8. **Modular handlers** - New routes should follow the pattern: create file in `route-handlers/`, export from `route-handlers/index.ts`, register in `index.ts`
+9. **Keep Swagger in sync** - Whenever you add, remove, or modify API endpoints, update the corresponding route definition in `index.ts` (search for `.get`, `.post`, `.put`, `.delete` with the `detail:` property). Swagger documentation must stay current with actual API behavior. See the swagger configuration section at the top of `index.ts` for examples.
+
+## Swagger/OpenAPI Integration
+
+### Adding or Modifying Routes with Swagger Documentation
+
+All routes in the Reminders API include Swagger documentation. When making changes:
+
+1. **Adding a new route** - Add the route handler with a `detail` object containing:
+   - `tags`: Array of tag names (e.g., `["Reminders"]`)
+   - `summary`: Brief one-line description
+   - `description`: Detailed explanation
+   - `parameters`: Path/query parameters (if any)
+   - `requestBody`: Body schema with example (if applicable)
+   - `responses`: All possible response codes with examples
+
+2. **Example route with full documentation:**
+   ```typescript
+   .post("/reminders", routes.createReminderRoute, {
+     detail: {
+       tags: ["Reminders"],
+       summary: "Create a new reminder",
+       description: "Creates a new reminder with support for alerts.",
+       requestBody: { /* ... */ },
+       responses: { /* ... */ },
+     },
+   })
+   ```
+
+3. **Testing the API** - Visit `http://localhost:8080/swagger` and:
+   - Click the lock icon (top right) to authorize with your API key
+   - Paste your `APP_API_KEY` value
+   - Try out the endpoints directly from the Swagger UI
 
 # Process Management Rules
 - NEVER leave background services or servers running after a task is complete.
