@@ -1,11 +1,13 @@
-import { db } from "../db";
+import { Database } from "bun:sqlite";
 import type { IReminderRepository } from "./reminder-repository.interface";
 import type { TReminder, TReminderDTO, TCreateReminderInput } from "../schemas";
 
 export class SQLiteReminderRepository implements IReminderRepository {
+  constructor(private db: Database) {}
+
   private getChanges(): number {
     return (
-      db.query("SELECT changes() as changes").get() as { changes: number }
+      this.db.query("SELECT changes() as changes").get() as { changes: number }
     ).changes;
   }
 
@@ -21,26 +23,26 @@ export class SQLiteReminderRepository implements IReminderRepository {
   }
 
   findAll(): TReminder[] {
-    const results = db.query("SELECT * FROM reminders").all() as TReminderDTO[];
+    const results = this.db.query("SELECT * FROM reminders").all() as TReminderDTO[];
     return results.map(this.transformRow);
   }
 
   findActive(): TReminder[] {
-    const results = db
+    const results = this.db
       .query("SELECT * FROM reminders WHERE is_active = 1")
       .all() as TReminderDTO[];
     return results.map(this.transformRow);
   }
 
   findById(id: number): TReminder | null {
-    const row = db
+    const row = this.db
       .query("SELECT * FROM reminders WHERE id = $id")
       .get({ $id: id }) as TReminderDTO | null;
     return row ? this.transformRow(row) : null;
   }
 
   create(data: TCreateReminderInput): { id: number } {
-    const stmt = db.prepare(`
+    const stmt = this.db.prepare(`
       INSERT INTO reminders (
         title, date, location, description, reminders, alerts,
         is_recurring, recurrence, start_date, end_date, is_active
@@ -64,7 +66,7 @@ export class SQLiteReminderRepository implements IReminderRepository {
       $is_active: data.is_active !== false ? 1 : 0,
     });
 
-    const result = db.query("SELECT last_insert_rowid() as id").get() as {
+    const result = this.db.query("SELECT last_insert_rowid() as id").get() as {
       id: number;
     };
     return { id: result.id };
@@ -122,18 +124,18 @@ export class SQLiteReminderRepository implements IReminderRepository {
     if (fields.length === 0) return false;
 
     const sql = `UPDATE reminders SET ${fields.join(", ")} WHERE id = $id`;
-    db.prepare(sql).run(values);
+    this.db.prepare(sql).run(values);
     return this.getChanges() > 0;
   }
 
   delete(id: number): boolean {
-    db.prepare("DELETE FROM reminders WHERE id = ?").run(id);
+    this.db.prepare("DELETE FROM reminders WHERE id = ?").run(id);
     return this.getChanges() > 0;
   }
 
   deleteBulk(ids: number[]): number {
     if (ids.length === 0) return 0;
-    const stmt = db.prepare("DELETE FROM reminders WHERE id = ?");
+    const stmt = this.db.prepare("DELETE FROM reminders WHERE id = ?");
     let totalChanges = 0;
     for (const id of ids) {
       stmt.run(id);
@@ -143,12 +145,12 @@ export class SQLiteReminderRepository implements IReminderRepository {
   }
 
   deactivate(id: number): boolean {
-    db.prepare("UPDATE reminders SET is_active = 0 WHERE id = ?").run(id);
+    this.db.prepare("UPDATE reminders SET is_active = 0 WHERE id = ?").run(id);
     return this.getChanges() > 0;
   }
 
   updateLastAlertTime(id: number, time: Date): boolean {
-    db
+    this.db
       .prepare("UPDATE reminders SET last_alert_time = ? WHERE id = ?")
       .run(time.toISOString(), id);
     return this.getChanges() > 0;
