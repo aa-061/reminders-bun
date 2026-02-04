@@ -1,6 +1,25 @@
 import { Database } from "bun:sqlite";
 import { beforeAll, afterAll, beforeEach } from "bun:test";
 
+// ==============================================================================
+// ENVIRONMENT SETUP FOR TESTS - Disable External Services
+// ==============================================================================
+
+// Disable QStash to prevent actual API calls to job scheduling service
+process.env.QSTASH_TOKEN = "";
+
+// Disable Mailtrap to prevent actual email sending
+process.env.MAILTRAP_HOST = "";
+process.env.MAILTRAP_USER = "";
+process.env.MAILTRAP_PASS = "";
+
+// Disable SendGrid to prevent actual email sending
+process.env.SENDGRID_API_KEY = "";
+process.env.SENDGRID_FROM_EMAIL = "";
+
+// Enable test mode
+process.env.NODE_ENV = "test";
+
 // Use in-memory database for tests
 const TEST_DB_PATH = ":memory:";
 

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { calculateNextEventTime } from "../../src/scheduler/helpers/calculateNextEventTime";
 import { getAlertsToFire } from "../../src/scheduler/helpers/getAlertsToFire";
 import { shouldDeactivateOneTime } from "../../src/scheduler/helpers/shouldDeactivateOneTime";
@@ -97,7 +97,15 @@ describe("Scheduler Helpers", () => {
         alerts: [],
       };
 
+      // Suppress console error since we expect the cron parser to fail
+      const originalError = console.error;
+      console.error = () => {};
+
       const result = calculateNextEventTime(reminder, now);
+
+      // Restore console.error
+      console.error = originalError;
+
       expect(result).toBeNull();
     });
 
