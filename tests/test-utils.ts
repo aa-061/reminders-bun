@@ -1,12 +1,52 @@
-import type { TReminder, TReminderMode, TCreateReminderInput } from "../src/schemas";
+import type { TCreateReminderInput } from "../src/schemas";
 
-// Base URL for API calls
-export const API_KEY = process.env.APP_API_KEY || "test-api-key";
+// Default test user credentials (used across all integration tests)
+export const TEST_USER = {
+  email: "test@example.com",
+  password: "test-password-123",
+  name: "Test User",
+};
 
-// Helper to make authenticated requests
-export function authHeaders() {
+/**
+ * Signs up (or signs in if account already exists) and returns the raw
+ * Set-Cookie header value for use in subsequent requests.
+ */
+export async function getSessionCookie(baseUrl: string): Promise<string> {
+  // Try sign-up first
+  let response = await fetch(`${baseUrl}/api/auth/sign-up/email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(TEST_USER),
+  });
+
+  // If sign-up fails (user already exists), fall back to sign-in
+  if (!response.ok) {
+    response = await fetch(`${baseUrl}/api/auth/sign-in/email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: TEST_USER.email,
+        password: TEST_USER.password,
+      }),
+    });
+  }
+
+  if (!response.ok) {
+    throw new Error(`Auth failed with ${response.status}: ${await response.text()}`);
+  }
+
+  // Extract cookie name=value pairs from Set-Cookie header(s)
+  const raw = response.headers.get("set-cookie") || "";
+  return raw
+    .split(/,\s*(?=[A-Za-z0-9_.-]+=)/)
+    .map((c) => c.split(";")[0].trim())
+    .join("; ");
+}
+
+/** Returns headers with session cookie for authenticated fetch calls. */
+export function sessionHeaders(cookie: string) {
   return {
-    "x-api-key": API_KEY,
+    Cookie: cookie,
     "Content-Type": "application/json",
   };
 }

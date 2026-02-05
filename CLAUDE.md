@@ -44,6 +44,11 @@ bun test --coverage
 bun test tests/integration/reminders.test.ts
 ```
 
+**Run TypeScript type-check (must pass with zero errors):**
+```bash
+bun run typecheck
+```
+
 ### Test Organization
 
 ```
@@ -62,10 +67,11 @@ tests/
 
 ### Testing Rules for Claude
 
-1. **Always run tests after making code changes** - Before completing any task that modifies code, run `bun test` to ensure all tests pass
-2. **Add tests for new functionality** - When adding new features or endpoints, add corresponding tests
-3. **Fix broken tests immediately** - If tests fail after your changes, fix them before moving on
-4. **Do not commit with failing tests** - All tests must pass before committing
+1. **Always run typecheck before completing a task** - Run `bun run typecheck` (i.e. `tsc --noEmit`) and confirm zero errors. IDE diagnostics can be stale and unreliable; the compiler output is ground truth. A task is NOT complete if typecheck reports any errors — fix them before moving on.
+2. **Always run tests after making code changes** - Before completing any task that modifies code, run `bun test` to ensure all tests pass
+3. **Add tests for new functionality** - When adding new features or endpoints, add corresponding tests
+4. **Fix broken tests immediately** - If tests fail after your changes, fix them before moving on
+5. **Do not commit with failing tests or type errors** - Both `bun run typecheck` and `bun test` must pass before committing
 
 ## Architecture Overview
 
@@ -193,6 +199,7 @@ Optional:
 8. **Modular handlers** - New routes should follow the pattern: create file in `route-handlers/`, export from `route-handlers/index.ts`, register in `index.ts`
 9. **Keep Swagger in sync** - Whenever you add, remove, or modify API endpoints, update the corresponding route definition in `index.ts` (search for `.get`, `.post`, `.put`, `.delete` with the `detail:` property). Swagger documentation must stay current with actual API behavior. See the swagger configuration section at the top of `index.ts` for examples.
 10. **Run tests before completing tasks** - After making any code changes, run `bun test` to ensure nothing is broken. Never leave a task incomplete with failing tests.
+11. **Update tests when implementation changes** - After making any code changes, make sure that all necessary changes are added to the tests as well. The tests need to be updated if needed and they need to pass.
 
 ## Swagger/OpenAPI Integration
 

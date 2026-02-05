@@ -3,7 +3,7 @@ export const swaggerDeleteRemindersBulk = {
     tags: ["Reminders"],
     summary: "Bulk delete reminders",
     description:
-      "Deletes multiple reminders at once using comma-separated IDs or ID ranges. Requires API key authentication.",
+      "Deletes multiple reminders at once using comma-separated IDs or ID ranges. Requires an active session.",
     parameters: [
       {
         name: "ids",

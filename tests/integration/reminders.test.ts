@@ -1,27 +1,27 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { app } from "../../index";
-import { authHeaders, createSampleReminder, createRecurringReminder } from "../test-utils";
-
-const API_KEY = process.env.APP_API_KEY || "test-api-key";
+import { getSessionCookie, sessionHeaders, createSampleReminder, createRecurringReminder } from "../test-utils";
 
 describe("Reminders API", () => {
   let server: ReturnType<typeof app.listen>;
   let baseUrl: string;
   let testDb: Database;
+  let cookie: string;
 
   beforeAll(async () => {
-    // Start server on a random available port for testing
     server = app.listen(0);
-    // Wait for server to start
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const address = server.hostname || "localhost";
-    const port = server.port || 8080;
+    const address = server.server?.hostname || "localhost";
+    const port = server.server?.port || 8080;
     baseUrl = `http://${address}:${port}`;
 
     // Connect to the actual test database for cleanup
     testDb = new Database("reminders.db");
+
+    // Obtain a session cookie for authenticated requests
+    cookie = await getSessionCookie(baseUrl);
   });
 
   afterAll(() => {
@@ -30,11 +30,10 @@ describe("Reminders API", () => {
   });
 
   beforeEach(() => {
-    // Clear database before each test to ensure clean state
     try {
       testDb.run("DELETE FROM reminders");
     } catch (e) {
-      // Table might not exist yet, which is fine
+      // Table might not exist yet
     }
   });
 
@@ -46,7 +45,7 @@ describe("Reminders API", () => {
   ): Promise<Response> {
     const options: RequestInit = {
       method,
-      headers: authHeaders(),
+      headers: sessionHeaders(cookie),
     };
     if (body) {
       options.body = JSON.stringify(body);
@@ -63,14 +62,13 @@ describe("Reminders API", () => {
       expect(data).toEqual([]);
     });
 
-    it("should return 401 without API key", async () => {
+    it("should return 401 without session", async () => {
       const response = await fetch(`${baseUrl}/reminders`);
 
       expect(response.status).toBe(401);
     });
 
     it("should only return active reminders", async () => {
-      // Create an active reminder
       const activeReminder = {
         title: "Active Reminder",
         date: new Date(Date.now() + 86400000).toISOString(),
@@ -83,13 +81,12 @@ describe("Reminders API", () => {
       await apiRequest("POST", "/reminders", activeReminder);
 
       const response = await apiRequest("GET", "/reminders");
-      const data = await response.json();
+      const data = (await response.json()) as { is_active: boolean }[];
 
       expect(response.status).toBe(200);
       expect(Array.isArray(data)).toBe(true);
       expect(data.length).toBeGreaterThan(0);
-      // is_active is stored as integer in DB but may be returned as boolean or number
-      expect(data.every((r: any) => r.is_active === true || r.is_active === 1)).toBe(true);
+      expect(data.every((r) => r.is_active === true)).toBe(true);
     });
   });
 
@@ -107,14 +104,14 @@ describe("Reminders API", () => {
     it("should create a one-time reminder successfully", async () => {
       const newReminder = {
         title: "Test Reminder",
-        date: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
+        date: new Date(Date.now() + 86400000).toISOString(),
         location: "Test Location",
         description: "Test Description",
         reminders: [
           { id: "mode-1", mode: "email" as const, address: "test@example.com" }
         ],
         alerts: [
-          { id: "alert-1", time: 3600000 } // 1 hour before
+          { id: "alert-1", time: 3600000 }
         ],
         is_recurring: false,
         recurrence: null,
@@ -125,10 +122,9 @@ describe("Reminders API", () => {
       const response = await apiRequest("POST", "/reminders", newReminder);
 
       expect(response.status).toBe(201);
-      const data = await response.json();
+      const data = (await response.json()) as { id: number; title: string };
       expect(data.id).toBeDefined();
       expect(data.title).toBe("Test Reminder");
-      expect(data).toBeDefined();
     });
 
     it("should create a recurring reminder successfully", async () => {
@@ -143,10 +139,10 @@ describe("Reminders API", () => {
           { id: "mode-1", mode: "email" as const, address: "team@example.com" }
         ],
         alerts: [
-          { id: "alert-1", time: 900000 } // 15 min before
+          { id: "alert-1", time: 900000 }
         ],
         is_recurring: true,
-        recurrence: "0 9 * * 1-5", // Weekdays at 9 AM
+        recurrence: "0 9 * * 1-5",
         start_date: startDate,
         end_date: endDate,
       };
@@ -154,13 +150,12 @@ describe("Reminders API", () => {
       const response = await apiRequest("POST", "/reminders", newReminder);
 
       expect(response.status).toBe(201);
-      const data = await response.json();
+      const data = (await response.json()) as { is_recurring: boolean; recurrence: string };
       expect(data.is_recurring).toBe(true);
       expect(data.recurrence).toBe("0 9 * * 1-5");
     });
 
     it("should accept reminder with non-standard email format", async () => {
-      // Note: The API currently doesn't validate email format
       const reminderWithCustomFormat = {
         title: "Custom Email Format",
         date: new Date(Date.now() + 86400000).toISOString(),
@@ -175,14 +170,13 @@ describe("Reminders API", () => {
       const response = await apiRequest("POST", "/reminders", reminderWithCustomFormat);
 
       expect(response.status).toBe(201);
-      const data = await response.json();
+      const data = (await response.json()) as { id: number };
       expect(data.id).toBeDefined();
     });
   });
 
   describe("GET /reminders/:id", () => {
     it("should return a specific reminder by ID", async () => {
-      // First create a reminder
       const newReminder = {
         title: "Get By ID Test",
         date: new Date(Date.now() + 86400000).toISOString(),
@@ -193,13 +187,12 @@ describe("Reminders API", () => {
       };
 
       const createResponse = await apiRequest("POST", "/reminders", newReminder);
-      const created = await createResponse.json();
+      const created = (await createResponse.json()) as { id: number };
 
-      // Then fetch it
       const response = await apiRequest("GET", `/reminders/${created.id}`);
 
       expect(response.status).toBe(200);
-      const data = await response.json();
+      const data = (await response.json()) as { id: number; title: string };
       expect(data.id).toBe(created.id);
       expect(data.title).toBe("Get By ID Test");
     });
@@ -213,7 +206,6 @@ describe("Reminders API", () => {
 
   describe("PUT /reminders/:id", () => {
     it("should update an existing reminder", async () => {
-      // Create a reminder
       const newReminder = {
         title: "Original Title",
         date: new Date(Date.now() + 86400000).toISOString(),
@@ -224,9 +216,8 @@ describe("Reminders API", () => {
       };
 
       const createResponse = await apiRequest("POST", "/reminders", newReminder);
-      const created = await createResponse.json();
+      const created = (await createResponse.json()) as { id: number };
 
-      // Update it
       const updates = {
         ...newReminder,
         title: "Updated Title",
@@ -236,7 +227,7 @@ describe("Reminders API", () => {
       const response = await apiRequest("PUT", `/reminders/${created.id}`, updates);
 
       expect(response.status).toBe(200);
-      const data = await response.json();
+      const data = (await response.json()) as { title: string; description: string };
       expect(data.title).toBe("Updated Title");
       expect(data.description).toBe("Updated description");
     });
@@ -259,7 +250,6 @@ describe("Reminders API", () => {
 
   describe("DELETE /reminders/:id", () => {
     it("should delete a reminder", async () => {
-      // Create a reminder
       const newReminder = {
         title: "To Delete",
         date: new Date(Date.now() + 86400000).toISOString(),
@@ -270,9 +260,8 @@ describe("Reminders API", () => {
       };
 
       const createResponse = await apiRequest("POST", "/reminders", newReminder);
-      const created = await createResponse.json();
+      const created = (await createResponse.json()) as { id: number };
 
-      // Delete it
       const response = await apiRequest("DELETE", `/reminders/${created.id}`);
 
       expect(response.status).toBe(200);
@@ -291,7 +280,6 @@ describe("Reminders API", () => {
 
   describe("DELETE /reminders/bulk", () => {
     it("should delete multiple reminders by IDs", async () => {
-      // Create multiple reminders
       const reminder1 = await apiRequest("POST", "/reminders", {
         title: "Bulk Delete 1",
         date: new Date(Date.now() + 86400000).toISOString(),
@@ -309,13 +297,12 @@ describe("Reminders API", () => {
         is_recurring: false,
       });
 
-      const r1 = await reminder1.json();
-      const r2 = await reminder2.json();
+      const r1 = (await reminder1.json()) as { id: number };
+      const r2 = (await reminder2.json()) as { id: number };
 
-      // Bulk delete
       const response = await apiRequest(
         "DELETE",
-        `/reminders/bulk?ids=${r1.id}&ids=${r2.id}`
+        `/reminders/bulk?ids=${r1.id}&ids=${r2.id}`,
       );
 
       expect(response.status).toBe(200);

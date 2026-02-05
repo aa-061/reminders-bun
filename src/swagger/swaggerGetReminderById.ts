@@ -3,7 +3,7 @@ export const swaggerGetReminderById = {
     tags: ["Reminders"],
     summary: "Get reminder by ID",
     description:
-      "Retrieves a specific reminder by its ID. Requires API key authentication.",
+      "Retrieves a specific reminder by its ID. Requires an active session.",
     parameters: [
       {
         name: "id",

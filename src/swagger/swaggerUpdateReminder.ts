@@ -3,7 +3,7 @@ export const swaggerUpdateReminder = {
     tags: ["Reminders"],
     summary: "Update an existing reminder",
     description:
-      "Updates an existing reminder with new values. Requires API key authentication.",
+      "Updates an existing reminder with new values. Requires an active session.",
     parameters: [
       {
         name: "id",

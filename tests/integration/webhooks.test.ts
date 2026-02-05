@@ -1,19 +1,22 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { app } from "../../index";
-import { authHeaders, createSampleReminder } from "../test-utils";
+import { getSessionCookie, sessionHeaders, createSampleReminder } from "../test-utils";
 
 describe("Webhook Endpoints", () => {
   let server: ReturnType<typeof app.listen>;
   let baseUrl: string;
+  let cookie: string;
 
   beforeAll(async () => {
     server = app.listen(0);
-    // Wait for server to start
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const address = server.hostname || "localhost";
-    const port = server.port || 8080;
+    const address = server.server?.hostname || "localhost";
+    const port = server.server?.port || 8080;
     baseUrl = `http://${address}:${port}`;
+
+    // Obtain session cookie for creating reminders (webhooks themselves are public)
+    cookie = await getSessionCookie(baseUrl);
   });
 
   afterAll(() => {
@@ -22,18 +25,18 @@ describe("Webhook Endpoints", () => {
 
   describe("POST /webhooks/reminder-alert", () => {
     it("should accept valid webhook payload in development mode", async () => {
-      // First create a reminder
+      // Create a reminder (requires auth)
       const reminder = createSampleReminder();
       const createResponse = await fetch(`${baseUrl}/reminders`, {
         method: "POST",
-        headers: authHeaders(),
+        headers: sessionHeaders(cookie),
         body: JSON.stringify(reminder),
       });
 
       expect(createResponse.status).toBe(201);
-      const createdReminder = await createResponse.json();
+      const createdReminder = (await createResponse.json()) as { id: number; is_active: boolean };
 
-      // Now send webhook payload
+      // Webhook itself does NOT require auth — secured by QStash signature
       const payload = {
         reminderId: createdReminder.id,
         isRecurring: false,
@@ -43,13 +46,12 @@ describe("Webhook Endpoints", () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          // In test/dev environment, signature verification is skipped
         },
         body: JSON.stringify(payload),
       });
 
       expect(response.status).toBe(200);
-      const data = await response.json();
+      const data = (await response.json()) as { status: string; reminderTitle: string };
       expect(data.status).toBe("ok");
       expect(data.reminderTitle).toBe(reminder.title);
     });
@@ -59,16 +61,16 @@ describe("Webhook Endpoints", () => {
       const reminder = createSampleReminder();
       const createResponse = await fetch(`${baseUrl}/reminders`, {
         method: "POST",
-        headers: authHeaders(),
+        headers: sessionHeaders(cookie),
         body: JSON.stringify(reminder),
       });
 
-      const createdReminder = await createResponse.json();
+      const createdReminder = (await createResponse.json()) as { id: number; is_active: boolean };
 
       // Deactivate the reminder
       await fetch(`${baseUrl}/reminders/${createdReminder.id}`, {
         method: "PUT",
-        headers: authHeaders(),
+        headers: sessionHeaders(cookie),
         body: JSON.stringify({ ...createdReminder, is_active: false }),
       });
 
@@ -87,7 +89,7 @@ describe("Webhook Endpoints", () => {
       });
 
       expect(response.status).toBe(200);
-      const data = await response.json();
+      const data = (await response.json()) as { status: string; reason: string };
       expect(data.status).toBe("skipped");
       expect(data.reason).toBe("inactive");
     });
@@ -107,7 +109,7 @@ describe("Webhook Endpoints", () => {
       });
 
       expect(response.status).toBe(200);
-      const data = await response.json();
+      const data = (await response.json()) as { status: string; reason: string };
       expect(data.status).toBe("skipped");
       expect(data.reason).toBe("reminder_not_found");
     });
@@ -117,11 +119,11 @@ describe("Webhook Endpoints", () => {
       const reminder = createSampleReminder({ is_recurring: false });
       const createResponse = await fetch(`${baseUrl}/reminders`, {
         method: "POST",
-        headers: authHeaders(),
+        headers: sessionHeaders(cookie),
         body: JSON.stringify(reminder),
       });
 
-      const createdReminder = await createResponse.json();
+      const createdReminder = (await createResponse.json()) as { id: number; is_active: boolean };
       expect(createdReminder.is_active).toBe(true);
 
       // Send webhook alert
@@ -140,12 +142,12 @@ describe("Webhook Endpoints", () => {
 
       expect(alertResponse.status).toBe(200);
 
-      // Verify reminder is now inactive
+      // Verify reminder is now inactive (requires auth)
       const getResponse = await fetch(`${baseUrl}/reminders/${createdReminder.id}`, {
-        headers: authHeaders(),
+        headers: sessionHeaders(cookie),
       });
 
-      const fetchedReminder = await getResponse.json();
+      const fetchedReminder = (await getResponse.json()) as { is_active: boolean };
       expect(fetchedReminder.is_active).toBe(false);
     });
 
@@ -160,11 +162,11 @@ describe("Webhook Endpoints", () => {
 
       const createResponse = await fetch(`${baseUrl}/reminders`, {
         method: "POST",
-        headers: authHeaders(),
+        headers: sessionHeaders(cookie),
         body: JSON.stringify(reminder),
       });
 
-      const createdReminder = await createResponse.json();
+      const createdReminder = (await createResponse.json()) as { id: number; is_active: boolean };
       expect(createdReminder.is_active).toBe(true);
 
       // Send webhook alert
@@ -183,12 +185,12 @@ describe("Webhook Endpoints", () => {
 
       expect(alertResponse.status).toBe(200);
 
-      // Verify reminder is still active
+      // Verify reminder is still active (requires auth)
       const getResponse = await fetch(`${baseUrl}/reminders/${createdReminder.id}`, {
-        headers: authHeaders(),
+        headers: sessionHeaders(cookie),
       });
 
-      const fetchedReminder = await getResponse.json();
+      const fetchedReminder = (await getResponse.json()) as { is_active: boolean };
       expect(fetchedReminder.is_active).toBe(true);
     });
   });
@@ -204,7 +206,7 @@ describe("Webhook Endpoints", () => {
       });
 
       expect(response.status).toBe(200);
-      const data = await response.json();
+      const data = (await response.json()) as { status: string };
       expect(data.status).toBe("ok");
     });
 
@@ -218,7 +220,7 @@ describe("Webhook Endpoints", () => {
 
       await fetch(`${baseUrl}/reminders`, {
         method: "POST",
-        headers: authHeaders(),
+        headers: sessionHeaders(cookie),
         body: JSON.stringify(staleReminder),
       });
 
@@ -232,9 +234,8 @@ describe("Webhook Endpoints", () => {
       });
 
       expect(response.status).toBe(200);
-      const data = await response.json();
+      const data = (await response.json()) as { status: string };
       expect(data.status).toBe("ok");
-      // The response may include cleanup statistics (deactivated count, etc.)
     });
   });
 });

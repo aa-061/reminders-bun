@@ -20,6 +20,9 @@ process.env.SENDGRID_FROM_EMAIL = "";
 // Enable test mode
 process.env.NODE_ENV = "test";
 
+// Allow registration so integration tests can create users
+process.env.ALLOW_REGISTRATION = "true";
+
 // Use in-memory database for tests
 const TEST_DB_PATH = ":memory:";
 

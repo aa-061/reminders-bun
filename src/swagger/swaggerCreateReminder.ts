@@ -3,7 +3,7 @@ export const swaggerCreateReminder = {
     tags: ["Reminders"],
     summary: "Create a new reminder",
     description:
-      "Creates a new reminder with support for one-time or recurring alerts. Requires API key authentication.",
+      "Creates a new reminder with support for one-time or recurring alerts. Requires an active session.",
     requestBody: {
       required: true,
       content: {

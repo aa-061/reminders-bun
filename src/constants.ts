@@ -1,13 +1,3 @@
-import type { IUnprotectedRoute } from "./types";
-
-export const unprotectedRoutes: IUnprotectedRoute[] = [
-  // Webhook routes are protected by QStash signature verification, not API key
-  {
-    method: "POST",
-    pathname: "/webhooks/reminder-alert",
-  },
-  {
-    method: "POST",
-    pathname: "/webhooks/cleanup",
-  },
-];
+// Webhook routes are public — secured by QStash signature verification.
+// All /reminders routes are protected by Better Auth session middleware (see index.ts).
+export const WEBHOOK_ROUTES = ["/webhooks/reminder-alert", "/webhooks/cleanup"];

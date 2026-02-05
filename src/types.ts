@@ -19,7 +19,3 @@ export interface Reminder {
   is_active?: boolean;
 }
 
-export interface IUnprotectedRoute {
-  method: string;
-  pathname: string;
-}

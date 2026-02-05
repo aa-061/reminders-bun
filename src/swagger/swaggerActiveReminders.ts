@@ -3,7 +3,7 @@ export const swaggerActiveReminders = {
     tags: ["Reminders"],
     summary: "Get all active reminders",
     description:
-      "Retrieves all currently active reminders (where is_active = true). Requires API key authentication.",
+      "Retrieves all currently active reminders (where is_active = true). Requires an active session.",
     responses: {
       200: {
         description: "List of active reminders",

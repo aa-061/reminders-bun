@@ -3,7 +3,7 @@ export const swaggerDeleteReminder = {
     tags: ["Reminders"],
     summary: "Delete a single reminder",
     description:
-      "Deletes a specific reminder by its ID. Requires API key authentication.",
+      "Deletes a specific reminder by its ID. Requires an active session.",
     parameters: [
       {
         name: "id",

@@ -4,18 +4,23 @@ export const swaggerMainConfig: ElysiaSwaggerConfig = {
   documentation: {
     info: {
       title: "Reminders API",
-      version: "1.0.0",
+      version: "2.0.0",
       description:
-        "A comprehensive REST API for managing reminders with support for one-time and recurring alerts via email, SMS, push notifications, and iCalendar.",
+        "A comprehensive REST API for managing reminders with support for one-time and recurring alerts via email, SMS, push notifications, and iCalendar. Authentication is session-based via Better Auth — sign in first at POST /api/auth/sign-in/email, then all subsequent requests include your session cookie automatically.",
     },
     tags: [
       {
+        name: "Auth",
+        description:
+          "Authentication endpoints (sign in, sign up, sign out, session). Managed by Better Auth.",
+      },
+      {
         name: "Reminders",
-        description: "Manage reminder operations",
+        description: "Manage reminder operations (requires active session)",
       },
       {
         name: "Webhooks",
-        description: "Webhook endpoints for reminder alerts",
+        description: "Webhook endpoints for reminder alerts (QStash signature-verified)",
       },
     ],
     servers: [
@@ -26,18 +31,18 @@ export const swaggerMainConfig: ElysiaSwaggerConfig = {
     ],
     components: {
       securitySchemes: {
-        ApiKeyAuth: {
+        cookieAuth: {
           type: "apiKey",
-          in: "header",
-          name: "x-api-key",
+          in: "cookie",
+          name: "better-auth.session_token",
           description:
-            "API Key authentication. Your API key is automatically available in Swagger UI - just start making requests!",
+            "Session cookie set automatically after signing in via POST /api/auth/sign-in/email. No manual configuration needed — just sign in first.",
         },
       },
     },
     security: [
       {
-        ApiKeyAuth: [],
+        cookieAuth: [],
       },
     ],
   },
