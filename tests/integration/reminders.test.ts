@@ -1,12 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { app } from "../../index";
 import { getSessionCookie, sessionHeaders, createSampleReminder, createRecurringReminder } from "../test-utils";
 
 describe("Reminders API", () => {
   let server: ReturnType<typeof app.listen>;
   let baseUrl: string;
-  let testDb: Database;
   let cookie: string;
 
   beforeAll(async () => {
@@ -17,24 +15,12 @@ describe("Reminders API", () => {
     const port = server.server?.port || 8080;
     baseUrl = `http://${address}:${port}`;
 
-    // Connect to the actual test database for cleanup
-    testDb = new Database("reminders.db");
-
     // Obtain a session cookie for authenticated requests
     cookie = await getSessionCookie(baseUrl);
   });
 
   afterAll(() => {
     server.stop();
-    testDb.close();
-  });
-
-  beforeEach(() => {
-    try {
-      testDb.run("DELETE FROM reminders");
-    } catch (e) {
-      // Table might not exist yet
-    }
   });
 
   // Helper function for API requests

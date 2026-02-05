@@ -1,5 +1,6 @@
 import { qstash, getWebhookBaseUrl } from "./client";
 import { getAppSettingsRepository } from "../repositories";
+import { logger } from "../logger";
 
 interface ScheduleReminderOptions {
   reminderId: number;
@@ -23,9 +24,7 @@ export async function scheduleReminderAlert(
   const { reminderId, alertTime, title } = options;
 
   if (!qstash) {
-    console.log(
-      `[DEV] Would schedule reminder ${reminderId} for ${alertTime.toISOString()}`,
-    );
+    logger.debug("Would schedule reminder (dev mode)", { reminderId, alertTime: alertTime.toISOString() });
     return { success: true, messageId: "dev-mode" };
   }
 
@@ -35,11 +34,8 @@ export async function scheduleReminderAlert(
     Math.floor((alertTime.getTime() - Date.now()) / 1000),
   );
 
-  // If the alert time is in the past or very soon, trigger immediately
   if (delaySeconds <= 0) {
-    console.log(
-      `Alert time for '${title}' is now or past, triggering immediately`,
-    );
+    logger.info("Alert time is now or past, triggering immediately", { title });
   }
 
   try {
@@ -49,17 +45,15 @@ export async function scheduleReminderAlert(
       delay: delaySeconds > 0 ? delaySeconds : undefined,
       retries: 3,
       headers: {
-        "x-api-key": process.env.APP_API_KEY || "", // ADDED: Forwards key to your Elysia app
+        "x-api-key": process.env.APP_API_KEY || "",
       },
     });
 
-    console.log(
-      `Scheduled alert for '${title}' at ${alertTime.toISOString()} (in ${delaySeconds}s)`,
-    );
+    logger.info("Scheduled alert", { title, alertTime: alertTime.toISOString(), delaySeconds });
 
     return { success: true, messageId: response.messageId };
   } catch (error) {
-    console.error(`Failed to schedule alert for '${title}':`, error);
+    logger.error("Failed to schedule alert", { title, error: (error as Error).message });
     return { success: false, error: (error as Error).message };
   }
 }
@@ -73,9 +67,7 @@ export async function scheduleRecurringReminder(
   cronExpression: string,
 ): Promise<ScheduleResult> {
   if (!qstash) {
-    console.log(
-      `[DEV] Would schedule recurring reminder ${reminderId} with cron: ${cronExpression}`,
-    );
+    logger.debug("Would schedule recurring reminder (dev mode)", { reminderId, cronExpression });
     return { success: true, messageId: "dev-mode" };
   }
 
@@ -87,21 +79,16 @@ export async function scheduleRecurringReminder(
       cron: cronExpression,
       body: JSON.stringify({ reminderId, isRecurring: true }),
       headers: {
-        "x-api-key": process.env.APP_API_KEY || "", // ADDED: Forwards key to your Elysia app
+        "x-api-key": process.env.APP_API_KEY || "",
       },
       retries: 3,
     });
 
-    console.log(
-      `Created recurring schedule for reminder ${reminderId}: ${cronExpression}`,
-    );
+    logger.info("Created recurring schedule", { reminderId, cronExpression });
 
     return { success: true, messageId: response.scheduleId };
   } catch (error) {
-    console.error(
-      `Failed to create recurring schedule for ${reminderId}:`,
-      error,
-    );
+    logger.error("Failed to create recurring schedule", { reminderId, error: (error as Error).message });
     return { success: false, error: (error as Error).message };
   }
 }
@@ -116,14 +103,14 @@ const CLEANUP_CRON = "0 0 * * *"; // Every day at midnight UTC
  */
 export async function ensureCleanupSchedule(): Promise<void> {
   if (!qstash) {
-    console.log("[DEV] QStash not configured - cleanup schedule not created");
+    logger.debug("QStash not configured - cleanup schedule not created");
     return;
   }
 
   // Already registered in a previous run — nothing to do.
   const settings = getAppSettingsRepository();
-  if (settings.get("cleanup_schedule_id")) {
-    console.log("Cleanup schedule already registered - skipping");
+  if (await settings.get("cleanup_schedule_id")) {
+    logger.info("Cleanup schedule already registered - skipping");
     return;
   }
 
@@ -141,11 +128,11 @@ export async function ensureCleanupSchedule(): Promise<void> {
     });
 
     // Persist so we don't call QStash again on the next cold start.
-    settings.set("cleanup_schedule_id", CLEANUP_SCHEDULE_ID);
+    await settings.set("cleanup_schedule_id", CLEANUP_SCHEDULE_ID);
 
-    console.log(`Cleanup schedule created (cron: ${CLEANUP_CRON})`);
+    logger.info("Cleanup schedule created", { cron: CLEANUP_CRON });
   } catch (error) {
-    console.error("Failed to ensure cleanup schedule:", error);
+    logger.error("Failed to ensure cleanup schedule", { error: (error as Error).message });
   }
 }
 
@@ -156,21 +143,19 @@ export async function cancelScheduledReminder(
   messageId: string,
 ): Promise<boolean> {
   if (!qstash) {
-    console.log(`[DEV] Would cancel scheduled message: ${messageId}`);
+    logger.debug("Would cancel scheduled message (dev mode)", { messageId });
     return true;
   }
 
   try {
-    // Try to cancel as a message first
     await qstash.messages.delete(messageId);
     return true;
   } catch {
     try {
-      // If that fails, try as a schedule
       await qstash.schedules.delete(messageId);
       return true;
     } catch (error) {
-      console.error(`Failed to cancel scheduled reminder ${messageId}:`, error);
+      logger.error("Failed to cancel scheduled reminder", { messageId, error: (error as Error).message });
       return false;
     }
   }

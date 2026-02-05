@@ -1,7 +1,8 @@
 import { Client } from "@upstash/qstash";
+import { logger } from "../logger";
 
 if (!process.env.QSTASH_TOKEN) {
-  console.warn("QSTASH_TOKEN not set - QStash scheduling disabled");
+  logger.warn("QSTASH_TOKEN not set - QStash scheduling disabled");
 }
 
 export const qstash = process.env.QSTASH_TOKEN

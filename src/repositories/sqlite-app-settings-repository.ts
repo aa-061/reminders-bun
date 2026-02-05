@@ -1,17 +1,22 @@
-import { db } from "../db";
+import type { Client } from "@libsql/client";
 import type { IAppSettingsRepository } from "./app-settings-repository.interface";
 
 export class SQLiteAppSettingsRepository implements IAppSettingsRepository {
-  get(key: string): string | null {
-    const row = db
-      .query("SELECT value FROM app_settings WHERE key = ?")
-      .get(key) as { value: string } | undefined;
-    return row?.value ?? null;
+  constructor(private client: Client) {}
+
+  async get(key: string): Promise<string | null> {
+    const result = await this.client.execute({
+      sql: "SELECT value FROM app_settings WHERE key = ?",
+      args: [key],
+    });
+    const row = result.rows[0];
+    return row ? (row.value as string) : null;
   }
 
-  set(key: string, value: string): void {
-    db
-      .prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)")
-      .run(key, value);
+  async set(key: string, value: string): Promise<void> {
+    await this.client.execute({
+      sql: "INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)",
+      args: [key, value],
+    });
   }
 }

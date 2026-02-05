@@ -1,5 +1,6 @@
 import cron_parse from "cron-parser";
 import type { TReminder } from "../../schemas";
+import { logger } from "../../logger";
 
 /**
  * Calculates the next event time for a reminder.
@@ -21,7 +22,7 @@ export function calculateNextEventTime(
       });
       return interval.next().toDate();
     } catch (err) {
-      console.error(`Error parsing cron for ${reminder.title}`, err);
+      logger.error("Error parsing cron expression", { title: reminder.title, error: (err as Error).message });
       return null;
     }
   } else {

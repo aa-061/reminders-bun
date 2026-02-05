@@ -1,8 +1,39 @@
-import { Database } from "bun:sqlite";
+import { createClient, type Client } from "@libsql/client";
 
-export const db = new Database("reminders.db");
+/**
+ * Create the shared database client once.
+ *
+ * URL resolution (checked in order):
+ *   test        → in-memory SQLite  (NODE_ENV === "test")
+ *   production  → Turso cloud       (TURSO_DATABASE_URL is set)
+ *   development → local file        (file:reminders.db)
+ */
+function createDbClient(): Client {
+  if (process.env.NODE_ENV === "test") {
+    return createClient({ url: "file::memory:" });
+  }
 
-db.run(`
+  if (process.env.TURSO_DATABASE_URL) {
+    return createClient({
+      url: process.env.TURSO_DATABASE_URL,
+      authToken: process.env.TURSO_AUTH_TOKEN,
+      // @libsql/hrana-client internally uses cross-fetch, which drops the
+      // Authorization header when constructing Request objects in Bun.
+      // Passing the native fetch bypasses that entirely.
+      fetch: globalThis.fetch,
+    });
+  }
+
+  return createClient({ url: "file:reminders.db" });
+}
+
+export const client: Client = createDbClient();
+
+// ---------------------------------------------------------------------------
+// Schema bootstrap – runs once when the module is first imported.
+// Top-level await is valid in ESM; Bun honours it.
+// ---------------------------------------------------------------------------
+await client.execute(`
   CREATE TABLE IF NOT EXISTS reminders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT,
@@ -20,33 +51,9 @@ db.run(`
   )
 `);
 
-db.run(`
+await client.execute(`
   CREATE TABLE IF NOT EXISTS app_settings (
     key TEXT PRIMARY KEY,
     value TEXT
   )
 `);
-
-// db.run(`
-//   CREATE TABLE IF NOT EXISTS reminder_mode (
-//     id INTEGER PRIMARY KEY AUTOINCREMENT,
-//     mode TEXT NOT NULL,
-//     address TEXT NOT NULL,
-//     -- Ensure the combination of mode and address is unique
-//     UNIQUE (mode, address)
-//   )
-// `);
-
-// db.run(`
-//   CREATE TABLE IF NOT EXISTS reminder_mode_link (
-//     reminder_id INTEGER NOT NULL,
-//     mode_id INTEGER NOT NULL,
-//     PRIMARY KEY (reminder_id, mode_id),
-//     FOREIGN KEY (reminder_id)
-//       REFERENCES reminders (id)
-//       ON DELETE CASCADE,
-//     FOREIGN KEY (mode_id)
-//       REFERENCES reminder_mode (id)
-//       ON DELETE CASCADE
-//   )
-// `);

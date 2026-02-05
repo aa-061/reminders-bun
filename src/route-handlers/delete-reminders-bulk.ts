@@ -1,11 +1,10 @@
 import { type Context } from "elysia";
-import type { TDeleteRemindersBulkOutput } from "../schemas";
 import { getReminderRepository } from "../repositories";
 
-export const deleteRemindersBulkRoute = ({
+export const deleteRemindersBulkRoute = async ({
   request,
   set,
-}: Context): TDeleteRemindersBulkOutput => {
+}: Context) => {
   try {
     const url = new URL(request.url);
     const idsParam = url.searchParams.get("ids");
@@ -31,7 +30,7 @@ export const deleteRemindersBulkRoute = ({
     }
 
     const repo = getReminderRepository();
-    const deletedCount = repo.deleteBulk(ids);
+    const deletedCount = await repo.deleteBulk(ids);
 
     return {
       status: "success",

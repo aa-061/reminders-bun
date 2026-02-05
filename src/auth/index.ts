@@ -1,13 +1,13 @@
 import { betterAuth } from "better-auth";
 import { Kysely } from "kysely";
-import { db } from "../db";
-import { BunSqliteDialect } from "./bun-sqlite-dialect";
+import { client } from "../db";
+import { LibSqlDialect } from "./libsql-dialect";
 import { getAuthSchemaRepository } from "../repositories";
 
 // Ensure the four auth tables exist before better-auth queries them.
-getAuthSchemaRepository().initialize();
+await getAuthSchemaRepository().initialize();
 
-const dialect = new BunSqliteDialect({ database: db });
+const dialect = new LibSqlDialect({ client });
 const kysely = new Kysely({ dialect });
 
 export const auth = betterAuth({

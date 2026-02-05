@@ -1,158 +1,168 @@
-import { Database } from "bun:sqlite";
+import type { Client } from "@libsql/client";
 import type { IReminderRepository } from "./reminder-repository.interface";
-import type { TReminder, TReminderDTO, TCreateReminderInput } from "../schemas";
+import type { TReminder, TCreateReminderInput } from "../schemas";
+
+// libsql Row values may be bigint for INTEGER columns; use a loose record type
+// and convert explicitly in transformRow so the rest of the app sees plain numbers.
+type RawRow = Record<string, string | number | bigint | ArrayBuffer | null>;
 
 export class SQLiteReminderRepository implements IReminderRepository {
-  constructor(private db: Database) {}
+  constructor(private client: Client) {}
 
-  private getChanges(): number {
-    return (
-      this.db.query("SELECT changes() as changes").get() as { changes: number }
-    ).changes;
-  }
-
-  private transformRow(row: TReminderDTO): TReminder {
+  private transformRow(row: RawRow): TReminder {
     return {
-      ...row,
-      location: row.location ? JSON.parse(row.location) : null,
-      reminders: row.reminders ? JSON.parse(row.reminders) : [],
-      alerts: row.alerts ? JSON.parse(row.alerts) : [],
+      id: Number(row.id),
+      title: row.title as string,
+      date: row.date as string,
+      location: row.location ? JSON.parse(row.location as string) : null,
+      description: row.description as string,
+      reminders: row.reminders ? JSON.parse(row.reminders as string) : [],
+      alerts: row.alerts ? JSON.parse(row.alerts as string) : [],
       is_recurring: !!row.is_recurring,
       is_active: !!row.is_active,
+      recurrence: (row.recurrence as string) ?? null,
+      start_date: (row.start_date as string) ?? null,
+      end_date: (row.end_date as string) ?? null,
+      last_alert_time: (row.last_alert_time as string) ?? null,
     };
   }
 
-  findAll(): TReminder[] {
-    const results = this.db.query("SELECT * FROM reminders").all() as TReminderDTO[];
-    return results.map(this.transformRow);
+  async findAll(): Promise<TReminder[]> {
+    const result = await this.client.execute("SELECT * FROM reminders");
+    return result.rows.map((row) => this.transformRow(row as RawRow));
   }
 
-  findActive(): TReminder[] {
-    const results = this.db
-      .query("SELECT * FROM reminders WHERE is_active = 1")
-      .all() as TReminderDTO[];
-    return results.map(this.transformRow);
+  async findActive(): Promise<TReminder[]> {
+    const result = await this.client.execute(
+      "SELECT * FROM reminders WHERE is_active = 1",
+    );
+    return result.rows.map((row) => this.transformRow(row as RawRow));
   }
 
-  findById(id: number): TReminder | null {
-    const row = this.db
-      .query("SELECT * FROM reminders WHERE id = $id")
-      .get({ $id: id }) as TReminderDTO | null;
-    return row ? this.transformRow(row) : null;
-  }
-
-  create(data: TCreateReminderInput): { id: number } {
-    const stmt = this.db.prepare(`
-      INSERT INTO reminders (
-        title, date, location, description, reminders, alerts,
-        is_recurring, recurrence, start_date, end_date, is_active
-      ) VALUES (
-        $title, $date, $location, $description, $reminders, $alerts,
-        $is_recurring, $recurrence, $start_date, $end_date, $is_active
-      )
-    `);
-
-    stmt.run({
-      $title: data.title,
-      $date: data.date,
-      $location: data.location ? JSON.stringify(data.location) : null,
-      $description: data.description,
-      $reminders: JSON.stringify(data.reminders ?? []),
-      $alerts: JSON.stringify(data.alerts ?? []),
-      $is_recurring: data.is_recurring ? 1 : 0,
-      $recurrence: data.recurrence ?? null,
-      $start_date: data.start_date ?? null,
-      $end_date: data.end_date ?? null,
-      $is_active: data.is_active !== false ? 1 : 0,
+  async findById(id: number): Promise<TReminder | null> {
+    const result = await this.client.execute({
+      sql: "SELECT * FROM reminders WHERE id = ?",
+      args: [id],
     });
-
-    const result = this.db.query("SELECT last_insert_rowid() as id").get() as {
-      id: number;
-    };
-    return { id: result.id };
+    if (result.rows.length === 0) return null;
+    return this.transformRow(result.rows[0] as RawRow);
   }
 
-  update(id: number, data: Partial<TCreateReminderInput>): boolean {
+  async create(data: TCreateReminderInput): Promise<{ id: number }> {
+    const result = await this.client.execute({
+      sql: `
+        INSERT INTO reminders (
+          title, date, location, description, reminders, alerts,
+          is_recurring, recurrence, start_date, end_date, is_active
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      args: [
+        data.title,
+        data.date,
+        data.location ? JSON.stringify(data.location) : null,
+        data.description,
+        JSON.stringify(data.reminders ?? []),
+        JSON.stringify(data.alerts ?? []),
+        data.is_recurring ? 1 : 0,
+        data.recurrence ?? null,
+        data.start_date ?? null,
+        data.end_date ?? null,
+        data.is_active !== false ? 1 : 0,
+      ],
+    });
+    return { id: Number(result.lastInsertRowid) };
+  }
+
+  async update(id: number, data: Partial<TCreateReminderInput>): Promise<boolean> {
     const fields: string[] = [];
-    const values: Record<string, string | number | null> = { $id: id };
+    const args: (string | number | null)[] = [];
 
     if (data.title !== undefined) {
-      fields.push("title = $title");
-      values.$title = data.title;
+      fields.push("title = ?");
+      args.push(data.title);
     }
     if (data.date !== undefined) {
-      fields.push("date = $date");
-      values.$date = data.date;
+      fields.push("date = ?");
+      args.push(data.date);
     }
     if (data.location !== undefined) {
-      fields.push("location = $location");
-      values.$location = data.location ? JSON.stringify(data.location) : null;
+      fields.push("location = ?");
+      args.push(data.location ? JSON.stringify(data.location) : null);
     }
     if (data.description !== undefined) {
-      fields.push("description = $description");
-      values.$description = data.description;
+      fields.push("description = ?");
+      args.push(data.description);
     }
     if (data.reminders !== undefined) {
-      fields.push("reminders = $reminders");
-      values.$reminders = JSON.stringify(data.reminders ?? []);
+      fields.push("reminders = ?");
+      args.push(JSON.stringify(data.reminders ?? []));
     }
     if (data.alerts !== undefined) {
-      fields.push("alerts = $alerts");
-      values.$alerts = JSON.stringify(data.alerts ?? []);
+      fields.push("alerts = ?");
+      args.push(JSON.stringify(data.alerts ?? []));
     }
     if (data.is_recurring !== undefined) {
-      fields.push("is_recurring = $is_recurring");
-      values.$is_recurring = data.is_recurring ? 1 : 0;
+      fields.push("is_recurring = ?");
+      args.push(data.is_recurring ? 1 : 0);
     }
     if (data.recurrence !== undefined) {
-      fields.push("recurrence = $recurrence");
-      values.$recurrence = data.recurrence;
+      fields.push("recurrence = ?");
+      args.push(data.recurrence);
     }
     if (data.start_date !== undefined) {
-      fields.push("start_date = $start_date");
-      values.$start_date = data.start_date;
+      fields.push("start_date = ?");
+      args.push(data.start_date);
     }
     if (data.end_date !== undefined) {
-      fields.push("end_date = $end_date");
-      values.$end_date = data.end_date;
+      fields.push("end_date = ?");
+      args.push(data.end_date);
     }
     if (data.is_active !== undefined) {
-      fields.push("is_active = $is_active");
-      values.$is_active = data.is_active === false ? 0 : 1;
+      fields.push("is_active = ?");
+      args.push(data.is_active === false ? 0 : 1);
     }
 
     if (fields.length === 0) return false;
 
-    const sql = `UPDATE reminders SET ${fields.join(", ")} WHERE id = $id`;
-    this.db.prepare(sql).run(values);
-    return this.getChanges() > 0;
+    args.push(id); // WHERE id = ?
+    const result = await this.client.execute({
+      sql: `UPDATE reminders SET ${fields.join(", ")} WHERE id = ?`,
+      args,
+    });
+    return result.rowsAffected > 0;
   }
 
-  delete(id: number): boolean {
-    this.db.prepare("DELETE FROM reminders WHERE id = ?").run(id);
-    return this.getChanges() > 0;
+  async delete(id: number): Promise<boolean> {
+    const result = await this.client.execute({
+      sql: "DELETE FROM reminders WHERE id = ?",
+      args: [id],
+    });
+    return result.rowsAffected > 0;
   }
 
-  deleteBulk(ids: number[]): number {
+  async deleteBulk(ids: number[]): Promise<number> {
     if (ids.length === 0) return 0;
-    const stmt = this.db.prepare("DELETE FROM reminders WHERE id = ?");
-    let totalChanges = 0;
-    for (const id of ids) {
-      stmt.run(id);
-      totalChanges += this.getChanges();
-    }
-    return totalChanges;
+    const placeholders = ids.map(() => "?").join(",");
+    const result = await this.client.execute({
+      sql: `DELETE FROM reminders WHERE id IN (${placeholders})`,
+      args: ids,
+    });
+    return result.rowsAffected;
   }
 
-  deactivate(id: number): boolean {
-    this.db.prepare("UPDATE reminders SET is_active = 0 WHERE id = ?").run(id);
-    return this.getChanges() > 0;
+  async deactivate(id: number): Promise<boolean> {
+    const result = await this.client.execute({
+      sql: "UPDATE reminders SET is_active = 0 WHERE id = ?",
+      args: [id],
+    });
+    return result.rowsAffected > 0;
   }
 
-  updateLastAlertTime(id: number, time: Date): boolean {
-    this.db
-      .prepare("UPDATE reminders SET last_alert_time = ? WHERE id = ?")
-      .run(time.toISOString(), id);
-    return this.getChanges() > 0;
+  async updateLastAlertTime(id: number, time: Date): Promise<boolean> {
+    const result = await this.client.execute({
+      sql: "UPDATE reminders SET last_alert_time = ? WHERE id = ?",
+      args: [time.toISOString(), id],
+    });
+    return result.rowsAffected > 0;
   }
 }

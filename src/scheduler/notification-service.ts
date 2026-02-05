@@ -1,5 +1,6 @@
 import { sendEmail } from "../email-handlers";
 import type { TReminder, TReminderMode } from "../schemas";
+import { logger } from "../logger";
 
 /**
  * Sends notifications to all contacts for a reminder.
@@ -20,10 +21,11 @@ export async function sendNotifications(
           reminder.description
         );
       } catch (error) {
-        console.error(
-          `Failed to send email notification to ${contact.address} for reminder '${reminder.title}':`,
-          error
-        );
+        logger.error("Failed to send email notification", {
+          to: contact.address,
+          title: reminder.title,
+          error: (error as Error).message,
+        });
         // Continue with other contacts even if one fails
       }
     }

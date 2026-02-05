@@ -1,5 +1,6 @@
 import { getReminderRepository } from "./repositories";
 import { deactivateReminder } from "./utils";
+import { logger } from "./logger";
 import {
   shouldDeactivateOneTime,
   shouldDeactivateRecurring,
@@ -11,9 +12,9 @@ import {
  * - One-time: deactivated if already alerted or >1 hour past due.
  * - Recurring: deactivated if next occurrence exceeds end_date.
  */
-export function cleanupStaleReminders(): { deactivated: number; checked: number } {
+export async function cleanupStaleReminders(): Promise<{ deactivated: number; checked: number }> {
   const repo = getReminderRepository();
-  const reminders = repo.findActive();
+  const reminders = await repo.findActive();
   const now = new Date();
   let deactivated = 0;
 
@@ -29,12 +30,12 @@ export function cleanupStaleReminders(): { deactivated: number; checked: number 
     }
 
     if (result.shouldDeactivate) {
-      deactivateReminder(reminder.id!, reminder.title);
-      console.log(`CLEANUP: Deactivated '${reminder.title}' - ${result.reason}`);
+      await deactivateReminder(reminder.id!, reminder.title);
+      logger.info("Cleanup: deactivated reminder", { title: reminder.title, reason: result.reason });
       deactivated++;
     }
   }
 
-  console.log(`CLEANUP: Checked ${reminders.length} reminders, deactivated ${deactivated}`);
+  logger.info("Cleanup complete", { checked: reminders.length, deactivated });
   return { deactivated, checked: reminders.length };
 }

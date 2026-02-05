@@ -9,13 +9,14 @@ import {
 } from "./scheduler/helpers";
 import { sendNotifications } from "./scheduler/notification-service";
 import { SCHEDULER_CONFIG } from "./scheduler/config";
+import { logger } from "./logger";
 
 /**
  * Main scheduler function that checks all active reminders.
  * Runs on a fixed interval (default: 3 seconds).
  */
 export async function checkReminders(): Promise<void> {
-  const reminders = getReminders();
+  const reminders = await getReminders();
   const now = new Date();
 
   for (const reminder of reminders) {
@@ -43,8 +44,8 @@ async function processReminder(reminder: TReminder, now: Date): Promise<void> {
   // Step 2: Check if reminder should be deactivated
   const deactivation = checkDeactivation(reminder, eventTime, now);
   if (deactivation.shouldDeactivate) {
-    deactivateReminder(reminder.id!, reminder.title);
-    console.log(`DEACTIVATING: '${reminder.title}' - ${deactivation.reason}`);
+    await deactivateReminder(reminder.id!, reminder.title);
+    logger.info("Deactivating reminder", { title: reminder.title, reason: deactivation.reason });
     return;
   }
 
@@ -87,13 +88,11 @@ async function processAlerts(
 
   // Send notifications if any alerts should fire
   if (alertsToFire.length > 0) {
-    console.log(
-      `ALERT TRIGGERED for '${reminder.title}'! Sending notifications...`,
-    );
+    logger.info("Alert triggered, sending notifications", { title: reminder.title });
 
     await sendNotifications(reminder, reminder.reminders);
 
     // Update last alert time to prevent duplicate alerts
-    updateLastAlertTime(reminder.id!, now);
+    await updateLastAlertTime(reminder.id!, now);
   }
 }

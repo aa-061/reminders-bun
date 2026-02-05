@@ -22,31 +22,14 @@ docker run -p 8080:8080 reminders-server
 
 ## Testing
 
-**IMPORTANT: Tests must be run before committing any changes to ensure nothing is broken.**
+**Test Commands (run manually as needed):**
 
-**Run all tests:**
 ```bash
-bun test
-```
-
-**Run tests in watch mode (during development):**
-```bash
-bun test --watch
-```
-
-**Run tests with coverage:**
-```bash
-bun test --coverage
-```
-
-**Run specific test file:**
-```bash
-bun test tests/integration/reminders.test.ts
-```
-
-**Run TypeScript type-check (must pass with zero errors):**
-```bash
-bun run typecheck
+bun test                                         # Run all tests
+bun test --watch                                 # Watch mode (during development)
+bun test --coverage                              # With coverage report
+bun test tests/integration/reminders.test.ts     # Specific test file
+bun run typecheck                                 # TypeScript type-check
 ```
 
 ### Test Organization
@@ -65,13 +48,12 @@ tests/
     └── repository.test.ts
 ```
 
-### Testing Rules for Claude
+### Testing Guidelines for Claude
 
-1. **Always run typecheck before completing a task** - Run `bun run typecheck` (i.e. `tsc --noEmit`) and confirm zero errors. IDE diagnostics can be stale and unreliable; the compiler output is ground truth. A task is NOT complete if typecheck reports any errors — fix them before moving on.
-2. **Always run tests after making code changes** - Before completing any task that modifies code, run `bun test` to ensure all tests pass
-3. **Add tests for new functionality** - When adding new features or endpoints, add corresponding tests
-4. **Fix broken tests immediately** - If tests fail after your changes, fix them before moving on
-5. **Do not commit with failing tests or type errors** - Both `bun run typecheck` and `bun test` must pass before committing
+1. **Manual testing** - You will not automatically run tests after changes. Run tests yourself before committing.
+2. **Type safety** - TypeScript strict mode is enabled. Try to catch type errors during implementation, but you don't need to run typecheck after every change.
+3. **Add tests for new functionality** - When adding new features or endpoints, add corresponding tests (optional: can be done separately).
+4. **Keep tests passing** - If you notice existing tests fail due to your changes, fix them before committing.
 
 ## Architecture Overview
 
@@ -84,10 +66,12 @@ This is a **Bun-first TypeScript server** built with **Elysia.js** for managing 
 - Starts background scheduler that runs `checkReminders()` every 3 seconds (configurable via `SCHEDULER_INTERVAL` env var)
 - Defines REST API routes
 
-**Database:** SQLite via `bun:sqlite`
-- Single file database: `reminders.db`
-- Schema defined in `src/db.ts`
-- All queries are encapsulated in repositories (`src/repositories/`). Never import `db` directly outside of a repository implementation.
+**Database:** SQLite via `@libsql/client`
+- Local development: `file:reminders.db` (single file, same directory as the project)
+- Production (Render): Turso cloud SQLite — set `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN`
+- Tests: `file::memory:` (fresh in-memory DB per worker, selected when `NODE_ENV=test`)
+- Schema bootstrap runs via top-level `await` in `src/db.ts` (CREATE TABLE IF NOT EXISTS)
+- All queries are encapsulated in repositories (`src/repositories/`). Never import `client` directly outside of a repository implementation.
 
 **Scheduler:** `src/check-reminders.ts`
 - Background process that checks for due reminders
@@ -103,9 +87,10 @@ This is a **Bun-first TypeScript server** built with **Elysia.js** for managing 
 ### Key Architectural Patterns
 
 **Repository Pattern:**
-- Every table has its own interface (`src/repositories/*-repository.interface.ts`) and SQLite implementation (`src/repositories/sqlite-*-repository.ts`).
-- Concrete implementations are the **only** place that imports `db` from `src/db.ts`. All other code obtains a repository via the factory functions exported from `src/repositories/index.ts` (e.g. `getReminderRepository()`, `getAppSettingsRepository()`).
-- Adding a new table means: (1) interface, (2) SQLite class, (3) factory in `index.ts`. Nothing else should touch the database directly.
+- Every table has its own interface (`src/repositories/*-repository.interface.ts`) and implementation (`src/repositories/sqlite-*-repository.ts`).
+- All repository methods are **async** (return `Promise`s) because `@libsql/client` is fully async.
+- Concrete implementations are the **only** place that imports `client` from `src/db.ts`. All other code obtains a repository via the factory functions exported from `src/repositories/index.ts` (e.g. `getReminderRepository()`, `getAppSettingsRepository()`).
+- Adding a new table means: (1) interface, (2) implementation class, (3) factory in `index.ts`. Nothing else should touch the database directly.
 
 **DTO Transformation Pattern:**
 - Database stores arrays/objects as JSON strings, booleans as integers (0/1)
@@ -176,21 +161,24 @@ is_active       INTEGER (0 or 1)
 
 ### Environment Variables
 
-Required:
-- `API_KEY` - Authentication key for API access
+Required (production):
+- `TURSO_DATABASE_URL` - Turso database URL (e.g. `libsql://…turso.io`)
+- `TURSO_AUTH_TOKEN` - Turso auth token
 - `DEFAULT_EMAIL` - Default email address for reminders
 
-Optional:
+Optional / development:
 - `PORT` - Server port (default: 8080)
 - `SCHEDULER_INTERVAL` - Reminder check interval in ms (default: 3000)
-- `MAIL_SERVICE` - Email provider: "sendgrid" or "mailtrap"
-- SendGrid: `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`
+- `USE_POLLING` - `true` for local dev polling, `false` for QStash webhooks
+- `MAIL_SERVICE` - Email provider: `mailtrap`
 - Mailtrap: `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USER`, `MAILTRAP_PASS`
+- Auth: `CORS_ORIGIN`, `BASE_URL`, `ALLOW_REGISTRATION`
+- QStash: `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `WEBHOOK_BASE_URL`
 
 ## Important Implementation Notes
 
-1. **This is Bun, not Node.js** - Use `bun run` commands, leverage Bun's native SQLite bindings
-2. **No ORM, but use repositories** - Raw SQL lives only inside `src/repositories/sqlite-*.ts`. Every other file reaches the database through a repository factory (`getReminderRepository()`, `getAppSettingsRepository()`, etc.). Never import `db` outside a repository.
+1. **This is Bun, not Node.js** - Use `bun run` commands. The database layer uses `@libsql/client` (works in Bun natively for local `file:` URLs; connects over HTTP/WS for Turso cloud).
+2. **No ORM, but use repositories** - Raw SQL lives only inside `src/repositories/sqlite-*.ts`. Every other file reaches the database through a repository factory (`getReminderRepository()`, `getAppSettingsRepository()`, etc.). Never import `client` outside a repository. All repo methods are async — always `await` them.
 3. **Always transform DTOs** - Use `getReminders()` or `getReminderById()` to ensure proper type conversion from database
 4. **Scheduler is independent** - Background reminder checking runs on its own interval, separate from HTTP requests
 5. **Cron syntax for recurrence** - Standard cron expressions (e.g., `0 9 * * 1-5` for weekdays at 9am)
@@ -198,8 +186,8 @@ Optional:
 7. **Type safety first** - TypeScript strict mode enabled, Zod provides runtime validation
 8. **Modular handlers** - New routes should follow the pattern: create file in `route-handlers/`, export from `route-handlers/index.ts`, register in `index.ts`
 9. **Keep Swagger in sync** - Whenever you add, remove, or modify API endpoints, update the corresponding route definition in `index.ts` (search for `.get`, `.post`, `.put`, `.delete` with the `detail:` property). Swagger documentation must stay current with actual API behavior. See the swagger configuration section at the top of `index.ts` for examples.
-10. **Run tests before completing tasks** - After making any code changes, run `bun test` to ensure nothing is broken. Never leave a task incomplete with failing tests.
-11. **Update tests when implementation changes** - After making any code changes, make sure that all necessary changes are added to the tests as well. The tests need to be updated if needed and they need to pass.
+10. **Tests are your responsibility** - You won't automatically run tests. Before committing, manually run `bun test` to verify everything works.
+11. **Update tests when needed** - If you add new features, consider adding corresponding tests or updating existing ones. However, this can be done separately or deferred to manual testing.
 
 ## Swagger/OpenAPI Integration
 
@@ -239,3 +227,55 @@ All routes in the Reminders API include Swagger documentation. When making chang
 - Before starting a new server on a port (e.g., 8080), check if it is already in use using `lsof -i :8080`.
 - If a port is blocked, kill the occupying process before proceeding.
 - Use `trap 'kill %1' EXIT` in bash scripts to ensure children are cleaned up.
+
+# Reduce Token Usage                                                                    
+                                                                                                      
+  1. Code Search Strategy (High Impact)                                                               
+                                                                                                      
+  - Current issue: You might be running broad explorations with the Explore agent                     
+  - Optimization: Use Glob + Grep for targeted searches instead of spawning agents                    
+  - Example: Instead of "explore where errors are handled", use Grep to search for specific patterns  
+  like throw new Error or catch (                                                                     
+                                                                                                      
+  2. File Reading Discipline (High Impact)                                                            
+                                                                                                      
+  - Current issue: Reading entire large files when you only need sections                             
+  - Optimization: Use the offset and limit parameters in the Read tool                                
+  Read file with limit:100 (first 100 lines)                                                          
+  Read file with offset:500, limit:50 (lines 500-550)                                                 
+                                                                                                      
+  3. Parallel Operations (Medium Impact)                                                              
+                                                                                                      
+  - Make multiple independent Bash/Read/Glob calls in one message                                     
+  - Saves round-trip time and reduces overall context                                                 
+                                                                                                      
+  4. Avoid Verbose Explanations (Low-Medium Impact)                                                   
+                                                                                                      
+  - Don't ask me to explain code I haven't read yet                                                   
+  - Stick to "here's what I'm doing" in concise statements                                            
+                                                                                                      
+  5. Task-Specific Agents (Medium Impact)                                                             
+                                                                                                      
+  - Use the Explore agent for complex codebase questions instead of Bash searches                     
+  - Only use specialized agents when truly needed                                                     
+                                                                                                      
+  6. Skip Intermediate Logging (Low Impact)                                                           
+                                                                                                      
+  - Avoid running git status between every edit                                                       
+  - Batch multiple edits, then check status once                                                      
+                                                                                                      
+  7. Local IDE Diagnostics (Low Impact)                                                               
+                                                                                                      
+  - Caveat: Not always reliable, but VSCode's Intellisense catches obvious errors                     
+  - Use for quick type checking during development (don't rely solely on it though)                   
+                                                                                                      
+  8. Comments in Code (Low Impact)                                                                    
+                                                                                                      
+  - Only add comments when logic is truly unclear                                                     
+  - Avoid auto-documenting everything ("creates a user" is redundant if method is createUser())       
+                                                                                                      
+  9. Minimal PR/Commit Context (Low Impact)                                                          
+                                                                                                      
+  - Skip verbose commit messages unless required                                                      
+  - Short, focused commit summaries are sufficient                                                    
+                                                                                                      

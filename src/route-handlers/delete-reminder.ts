@@ -1,14 +1,13 @@
 import { type Context } from "elysia";
 import { getReminderById } from "./route-helpers";
-import type { TDeleteReminderOutput } from "../schemas";
 import { getReminderRepository } from "../repositories";
 
-export const deleteReminderRoute = ({
+export const deleteReminderRoute = async ({
   params: { id },
   set,
-}: Context): TDeleteReminderOutput => {
+}: Context) => {
   try {
-    const foundReminder = getReminderById(Number(id));
+    const foundReminder = await getReminderById(Number(id));
 
     if (!foundReminder) {
       set.status = 404;
@@ -16,7 +15,7 @@ export const deleteReminderRoute = ({
     }
 
     const repo = getReminderRepository();
-    const deleted = repo.delete(Number(id));
+    const deleted = await repo.delete(Number(id));
 
     if (!deleted) {
       set.status = 500;

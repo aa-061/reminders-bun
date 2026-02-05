@@ -457,7 +457,7 @@ npx localtunnel --port 8080
 
 ---
 
-## Phase 3: Repository Pattern (Simplified)
+## Phase 3: Repository Pattern (Simplified) ✅ COMPLETE
 
 **Priority: MEDIUM** | **Risk: LOW** | **Complexity: LOW**
 
@@ -688,7 +688,7 @@ A second repository was added for the `app_settings` key/value table, following 
 
 ---
 
-## Phase 4: Authentication with Better Auth
+## Phase 4: Authentication with Better Auth ✅ COMPLETE
 
 **Priority: HIGH** | **Risk: MEDIUM** | **Complexity: MEDIUM**
 
@@ -927,60 +927,6 @@ CORS_ORIGIN=http://localhost:3000
 # CORS_ORIGIN=https://your-frontend.vercel.app
 ```
 
-### Step 4.8: Frontend Auth Integration
-
-In your React/frontend app, use Better Auth's client:
-
-```bash
-# In your frontend project
-bun add better-auth
-```
-
-**File:** (frontend) `src/lib/auth-client.ts`
-
-```typescript
-import { createAuthClient } from "better-auth/client";
-
-export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080",
-});
-
-// Helper functions
-export const signIn = authClient.signIn.email;
-export const signUp = authClient.signUp.email;
-export const signOut = authClient.signOut;
-export const getSession = authClient.getSession;
-```
-
-**Example login page:**
-
-```typescript
-import { signIn } from "@/lib/auth-client";
-
-async function handleLogin(email: string, password: string) {
-  const result = await signIn({
-    email,
-    password,
-  });
-
-  if (result.error) {
-    alert(result.error.message);
-  } else {
-    // Redirect to dashboard
-    window.location.href = "/dashboard";
-  }
-}
-```
-
-**Making authenticated API calls:**
-
-```typescript
-// Cookies are automatically sent with credentials: "include"
-const response = await fetch("https://your-api.onrender.com/reminders", {
-  credentials: "include", // This sends the session cookie
-});
-```
-
 ### Step 4.9: Disable Public Registration (Security)
 
 For personal use, you don't want random people creating accounts. Better Auth doesn't have a built-in "disable registration" flag, so we handle it at the route level:
@@ -1084,7 +1030,7 @@ No manual migration needed!
 
 ---
 
-## Phase 5: Dockerization and Render Deployment
+## Phase 5: Dockerization and Render Deployment ✅ COMPLETE
 
 **Priority: HIGH** | **Risk: LOW** | **Complexity: LOW**
 
@@ -1134,20 +1080,7 @@ reminders.db-*
 .DS_Store
 ```
 
-### Step 5.3: Update Database Path for Persistence
-
-**File:** `src/db.ts` (update)
-
-```typescript
-import { Database } from "bun:sqlite";
-
-const DB_PATH = process.env.DATABASE_PATH || "reminders.db";
-export const db = new Database(DB_PATH);
-
-// ... rest of schema creation
-```
-
-### Step 5.4: Add Health Check
+### Step 5.3: Add Health Check
 
 **File:** `index.ts` (update)
 
@@ -1158,53 +1091,7 @@ export const db = new Database(DB_PATH);
 }))
 ```
 
-### Step 5.5: Create render.yaml
-
-**File:** `render.yaml`
-
-```yaml
-services:
-  - type: web
-    name: reminders-server
-    runtime: docker
-    plan: free
-    healthCheckPath: /health
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: PORT
-        value: 8080
-      # Auth
-      - key: CORS_ORIGIN
-        sync: false  # Your frontend URL
-      - key: ALLOW_REGISTRATION
-        value: "false"
-      # QStash
-      - key: QSTASH_TOKEN
-        sync: false
-      - key: QSTASH_CURRENT_SIGNING_KEY
-        sync: false
-      - key: QSTASH_NEXT_SIGNING_KEY
-        sync: false
-      - key: WEBHOOK_BASE_URL
-        sync: false
-      # Database
-      - key: DATABASE_PATH
-        value: /app/data/reminders.db
-      # Email
-      - key: SENDGRID_API_KEY
-        sync: false
-      - key: SENDGRID_FROM_EMAIL
-        sync: false
-      - key: MAIL_SERVICE
-        value: sendgrid
-    disk:
-      name: reminders-data
-      mountPath: /app/data
-      sizeGB: 1
-```
-
-### Step 5.6: Create .env.example
+### Step 5.4: Create .env.example
 
 **File:** `.env.example`
 
@@ -1262,25 +1149,21 @@ USE_POLLING=true
    - Select "Docker" as runtime
    - Select "Free" plan
 
-4. **Add Disk (Important for SQLite!)**
-   - Go to service settings → "Disks"
-   - Add disk: name=`reminders-data`, mount=`/app/data`, size=1GB
-
-5. **Set Environment Variables**
+4. **Set Environment Variables**
    - `NODE_ENV` = production
    - `PORT` = 8080
    - `CORS_ORIGIN` = your frontend URL
    - `ALLOW_REGISTRATION` = false
-   - `DATABASE_PATH` = /app/data/reminders.db
+   - `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` from Turso dashboard
    - `WEBHOOK_BASE_URL` = https://your-app.onrender.com
    - `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY` from Upstash
    - `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL` for emails
 
-6. **Deploy**
+5. **Deploy**
    - Render will build and deploy automatically
    - Wait for "Live" status
 
-7. **Create Admin Account**
+6. **Create Admin Account**
    You have two options:
 
    **Option A: Via Render Shell**
@@ -1292,7 +1175,7 @@ USE_POLLING=true
    - Sign up via your frontend
    - Set `ALLOW_REGISTRATION=false` again
 
-8. **Test**
+7. **Test**
    ```bash
    # Health check
    curl https://your-app.onrender.com/health
@@ -1312,58 +1195,103 @@ USE_POLLING=true
 
 ---
 
-## Phase 6: Code Quality (Optional)
+## Phase 5b: Turso – Cloud-Persisted SQLite ✅ COMPLETE
+
+**Priority: CRITICAL** | **Risk: LOW** | **Complexity: LOW**
+
+### Problem
+
+Render's free tier has **no persistent disk**. SQLite stored inside the Docker container
+is wiped every time the service restarts or goes to sleep. All reminder data is lost.
+
+### Solution – Turso
+
+[Turso](https://turso.tech) is a cloud-hosted SQLite service built on
+[libsql](https://github.com/libsql/libsql). The wire protocol is HTTP/WebSocket, but
+the SQL dialect is 100 % compatible with standard SQLite — no query changes required.
+
+| Turso Free Tier | Limit | Our usage |
+|-----------------|-------|-----------|
+| Databases | 1 | 1 |
+| Storage | 512 MB | < 1 MB |
+| Reads / month | 30 M | ~hundreds |
+| Writes / month | 1 M | ~tens |
+| Cost | **$0** | — |
+
+### What Changed
+
+| Area | Before | After |
+|------|--------|-------|
+| `src/db.ts` | `bun:sqlite` `Database` singleton | `@libsql/client` `Client` singleton; URL selected by env |
+| Repository methods | Synchronous | **Async** (`Promise`-returning) |
+| Auth dialect | Custom `BunSqliteDialect` wrapping `bun:sqlite` | `LibSqlDialect` wrapping the shared `@libsql/client` |
+| Route handlers | Sync | **Async** (all `await` repo calls) |
+| `utils.ts` / `cleanup.ts` / `check-reminders.ts` / `scheduler.ts` | Sync DB calls | **Async** |
+| Tests | `new Database(":memory:")` per test | `createClient({ url: "file::memory:" })` per test |
+| `.env.example` | — | Added `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` |
+
+### URL Resolution in `src/db.ts`
+
+```
+NODE_ENV === "test"          →  file::memory:          (isolated per worker)
+TURSO_DATABASE_URL is set    →  libsql://…turso.io     (production / Render)
+otherwise                    →  file:reminders.db      (local dev)
+```
+
+### Step 5b.1 – Get a Turso Database
+
+1. Go to [app.turso.tech](https://app.turso.tech) and sign up (free).
+2. Click **New Database** → choose a region close to your Render service (e.g. *IAD* for US East).
+3. On the database page, copy **Database URL** and **Primary Token** from the top-right panel.
+
+### Step 5b.2 – Set Environment Variables on Render
+
+In your Render service → **Environment** tab, add:
+
+| Key | Value |
+|-----|-------|
+| `TURSO_DATABASE_URL` | The URL you copied (starts with `libsql://`) |
+| `TURSO_AUTH_TOKEN` | The token you copied |
+
+That's all. The next deploy will connect to Turso automatically.
+
+### Step 5b.3 – Local Development (No Turso Needed)
+
+Leave `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` unset (or omit them from `.env`).
+The server falls back to `file:reminders.db` in the project root — identical behaviour
+to before, no account required.
+
+---
+
+## Phase 6: Code Quality ✅ COMPLETE
 
 **Priority: LOW** | **Risk: LOW** | **Complexity: LOW**
 
-### Step 6.1: Add Structured Logging
+### What Was Implemented
 
-**File:** `src/logger.ts`
+1. **Structured Logging** (`src/logger.ts`)
+   - JSON-formatted output: `{ timestamp, level, message, ...context }`
+   - Level filtering via `LOG_LEVEL` env var (default `info`; auto-set to `error` in test mode)
+   - Every `console.log/warn/error` across the codebase replaced with `logger.info/warn/error`
+   - Dev-only QStash messages downgraded to `debug` so production logs stay focused
 
-```typescript
-type LogLevel = "debug" | "info" | "warn" | "error";
-
-const LOG_LEVEL = (process.env.LOG_LEVEL || "info") as LogLevel;
-const LEVELS: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
-
-function log(level: LogLevel, message: string, context?: Record<string, unknown>) {
-  if (LEVELS[level] < LEVELS[LOG_LEVEL]) return;
-
-  const entry = {
-    timestamp: new Date().toISOString(),
-    level,
-    message,
-    ...context,
-  };
-
-  console.log(JSON.stringify(entry));
-}
-
-export const logger = {
-  debug: (msg: string, ctx?: Record<string, unknown>) => log("debug", msg, ctx),
-  info: (msg: string, ctx?: Record<string, unknown>) => log("info", msg, ctx),
-  warn: (msg: string, ctx?: Record<string, unknown>) => log("warn", msg, ctx),
-  error: (msg: string, ctx?: Record<string, unknown>) => log("error", msg, ctx),
-};
-```
-
-### Step 6.2: Remove Dead Code
-
-- Remove commented-out code in `index.ts`
-- Remove unused imports
+2. **Dead Code Review**
+   - Codebase was already clean — no commented-out code or unused imports found
 
 ---
 
 ## Implementation Order
 
-| Order | Phase | Effort | Notes |
-|-------|-------|--------|-------|
-| 1 | Phase 1 (checkReminders refactor) | - | ✅ COMPLETE |
-| 2 | Phase 4 (Better Auth) | 2-3 hours | Security first - protect your data |
-| 3 | Phase 2 (QStash Integration) | 2-3 hours | Replace polling with events |
-| 4 | Phase 5 (Dockerization) | 1-2 hours | Deploy to Render |
-| 5 | Phase 3 (Repository Pattern) | 2-3 hours | Nice to have, do later |
-| 6 | Phase 6 (Code Quality) | 1 hour | Optional cleanup |
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Phase 1 | checkReminders refactor | ✅ COMPLETE |
+| Phase 2 | QStash Integration | ✅ COMPLETE |
+| Phase 3 | Repository Pattern | ✅ COMPLETE |
+| Phase 4 | Better Auth | ✅ COMPLETE |
+| Phase 5 | Dockerization + Turso | ✅ COMPLETE |
+| Phase 6 | Code Quality (structured logging) | ✅ COMPLETE |
+| Phase 7 | Swagger / OpenAPI docs | ✅ COMPLETE |
+| Phase 8 | Tests | ✅ COMPLETE |
 
 ---
 
@@ -1382,11 +1310,11 @@ Recommended order for a secure deployment:
    - Implement scheduler and webhook endpoint
    - Update create-reminder to schedule alerts
 
-3. **Dockerize and Deploy** (Phase 5) - 1-2 hours
-   - Create Dockerfile and render.yaml
-   - Push to GitHub → Connect to Render
-   - Add disk for SQLite persistence
-   - Set environment variables
+3. **Dockerize and Deploy** (Phase 5)
+   - Create Dockerfile
+   - Push to GitHub → Connect to Render (Docker runtime, free plan)
+   - Set up Turso for cloud SQLite persistence
+   - Set environment variables (Turso, QStash, email)
    - Create admin account on production
 
 **Total: ~6-8 hours to fully secured app on Render for FREE**
@@ -1400,11 +1328,9 @@ Recommended order for a secure deployment:
 | **Render** | 750 hours/month, sleeps after 15 min | Fine with QStash |
 | **Upstash QStash** | 1,000 messages/day | ~2/week |
 | **SendGrid** | 100 emails/day | ~2/week |
-| **Render Disk** | 1GB included | Plenty |
+| **Turso** | 1 DB, 512 MB, 30M reads/mo | < 1 MB |
 
 **Total Monthly Cost: $0**
-
----
 
 ---
 
@@ -1495,6 +1421,41 @@ Documentation includes realistic examples:
 - **Recurring reminders**: Team meetings with cron expressions
 - **Multiple alerts**: Different notification times (email, SMS, push)
 - **Various reminder types**: With locations, descriptions, and recurrence patterns
+
+---
+
+## Phase 8: Tests ✅ COMPLETE
+
+**Priority: MEDIUM** | **Risk: LOW** | **Complexity: LOW**
+
+### What Was Implemented
+
+Integration and unit test suite covering the full API surface. **165 tests, 0 failures.**
+
+#### Test Organization
+
+```
+tests/
+├── setup.ts              # In-memory database, shared app instance
+├── test-utils.ts         # Factories and helpers
+├── integration/
+│   ├── reminders.test.ts # CRUD endpoint tests
+│   ├── auth.test.ts      # Better Auth sign-up / sign-in / session
+│   └── webhooks.test.ts  # QStash webhook handlers
+└── unit/
+    ├── schemas.test.ts            # Zod validation rules
+    ├── scheduler-helpers.test.ts  # Alert-firing and deactivation logic
+    ├── repository.test.ts         # SQLiteReminderRepository full lifecycle
+    └── utils.test.ts              # Utility functions
+```
+
+#### Running Tests
+
+```bash
+bun test                  # all tests
+bun test --coverage       # with coverage report
+bun run typecheck         # TypeScript type-check
+```
 
 ---
 

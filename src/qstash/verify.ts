@@ -1,4 +1,5 @@
 import { Receiver } from "@upstash/qstash";
+import { logger } from "../logger";
 
 const receiver = new Receiver({
   currentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY || "",
@@ -19,7 +20,7 @@ export async function verifyQStashSignature(
   }
 
   if (!signature || !process.env.QSTASH_CURRENT_SIGNING_KEY) {
-    console.warn("QStash signature verification skipped - keys not configured");
+    logger.warn("QStash signature verification skipped - keys not configured");
     return true;
   }
 
@@ -27,7 +28,7 @@ export async function verifyQStashSignature(
     await receiver.verify({ signature, body });
     return true;
   } catch (error) {
-    console.error("QStash signature verification failed:", error);
+    logger.error("QStash signature verification failed", { error: (error as Error).message });
     return false;
   }
 }

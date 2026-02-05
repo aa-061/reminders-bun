@@ -1,5 +1,6 @@
 import sgMail from "@sendgrid/mail";
 import * as nodemailer from "nodemailer";
+import { logger } from "./logger";
 
 const MAIL_SERVICE =
   (process.env.MAIL_SERVICE as "sendgrid" | "mailtrap") || "sendgrid";
@@ -27,7 +28,7 @@ const mailtrapTransporter = nodemailer.createTransport({
 
 const mailtrapEmail = async (to: string, subject: string, content: string) => {
   if (!MAILTRAP_HOST || !MAILTRAP_USER || !MAILTRAP_PASS) {
-    console.log("Skipping Mailtrap email (SMTP config missing).");
+    logger.warn("Skipping Mailtrap email - SMTP config missing");
     return;
   }
 
@@ -42,15 +43,15 @@ const mailtrapEmail = async (to: string, subject: string, content: string) => {
       text,
       html,
     });
-    console.log(`Mailtrap email sent: ${info.messageId}`);
+    logger.info("Mailtrap email sent", { messageId: info.messageId, to });
   } catch (error: any) {
-    console.error("Mailtrap Error:", error.message);
+    logger.error("Mailtrap send failed", { error: error.message });
   }
 };
 
 const sendgridEmail = async (to: string, subject: string, content: string) => {
   if (!SENDGRID_KEY || !SENDGRID_FROM) {
-    console.log("Skipping SendGrid email (SendGrid keys missing).");
+    logger.warn("Skipping SendGrid email - API keys missing");
     return;
   }
 
@@ -65,9 +66,9 @@ const sendgridEmail = async (to: string, subject: string, content: string) => {
       text,
       html,
     });
-    console.log(`SendGrid email sent to ${to}`);
+    logger.info("SendGrid email sent", { to });
   } catch (error: any) {
-    console.error("SendGrid Error:", error.response?.body || error.message);
+    logger.error("SendGrid send failed", { error: error.response?.body || error.message });
   }
 };
 

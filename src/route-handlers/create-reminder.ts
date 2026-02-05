@@ -5,6 +5,7 @@ import {
   scheduleRecurringReminder,
 } from "../qstash/scheduler";
 import { getReminderRepository } from "../repositories";
+import { logger } from "../logger";
 
 export const createReminderRoute = async ({ body, set }: Context) => {
   const r = body as TCreateReminderInput;
@@ -20,11 +21,10 @@ export const createReminderRoute = async ({ body, set }: Context) => {
 
   try {
     const repo = getReminderRepository();
-    const { id } = repo.create(r);
+    const { id } = await repo.create(r);
     insertedId = id;
   } catch (dbError) {
-    // Catch and log the actual database error
-    console.error("Database Insertion Error:", dbError);
+    logger.error("Database insertion error", { error: (dbError as Error).message });
     set.status = 500;
 
     return {
@@ -36,7 +36,7 @@ export const createReminderRoute = async ({ body, set }: Context) => {
   if (insertedId !== undefined && insertedId > 0) {
     set.status = 201;
 
-    console.log(`Successfully created a new reminder: ${r.title}!`);
+    logger.info("Reminder created", { id: insertedId, title: r.title });
 
     // After successfully inserting the reminder, schedule the alerts:
 
@@ -65,11 +65,7 @@ export const createReminderRoute = async ({ body, set }: Context) => {
 
     return { id: insertedId, ...r };
   } else {
-    // Fallback path: Log the error and return 201 with the reminder data,
-    // assigning a temporary ID (0) so the server doesn't crash.
-    console.error(
-      "Critical Runtime Error: Manual last_insert_rowid() failed. Returning ID 0 as fallback.",
-    );
+    logger.error("lastInsertRowid returned 0, using fallback ID");
     set.status = 201;
     return { id: 0, ...r };
   }

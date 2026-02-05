@@ -1,8 +1,8 @@
 import { type Context } from "elysia";
 import { getReminderById } from "./route-helpers";
 
-export const getReminderByIdRoute = ({ params: { id }, set }: Context) => {
-  const r = getReminderById(Number(id));
+export const getReminderByIdRoute = async ({ params: { id }, set }: Context) => {
+  const r = await getReminderById(Number(id));
   if (!r) {
     set.status = 404;
     return { error: "Reminder not found" };

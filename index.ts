@@ -9,8 +9,9 @@ import { ensureCleanupSchedule } from "./src/qstash/scheduler";
 import { auth } from "./src/auth";
 import { requireAuth } from "./src/auth/middleware";
 import * as s from "./src/swagger";
+import { logger } from "./src/logger";
 
-const PORT = process.env.APP_PORT;
+const PORT = process.env.PORT;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000";
 const SCHEDULER_INTERVAL = Number(process.env.SCHEDULER_INTERVAL) || 3000;
 const USE_POLLING = process.env.USE_POLLING === "true";
@@ -18,12 +19,12 @@ const USE_POLLING = process.env.USE_POLLING === "true";
 if (USE_POLLING || !process.env.QSTASH_TOKEN) {
   // Local dev: poll checkReminders on an interval so alerts fire without QStash.
   setInterval(checkReminders, SCHEDULER_INTERVAL);
-  console.log(`Polling scheduler started (interval: ${SCHEDULER_INTERVAL}ms)`);
+  logger.info("Polling scheduler started", { intervalMs: SCHEDULER_INTERVAL });
 } else {
   // Production: QStash fires alerts via /webhooks/reminder-alert.
   // Register (or update) the monthly cleanup cron so stale reminders get deactivated.
   ensureCleanupSchedule();
-  console.log("QStash scheduler active - daily cleanup scheduled");
+  logger.info("QStash scheduler active - daily cleanup scheduled");
 }
 
 export const app = new Elysia()
@@ -37,7 +38,7 @@ export const app = new Elysia()
     }),
   )
   .onError(({ error, set }) => {
-    console.error(error);
+    logger.error("Unhandled error", { message: (error as Error).message, stack: (error as Error).stack });
     set.status = 500;
 
     const errorMessage = (error as Error).message || "Unknown error occurred.";
@@ -78,4 +79,4 @@ export const app = new Elysia()
 
   .listen(PORT || 8080);
 
-console.log(`Server is running at ${app.server?.hostname}:${app.server?.port}`);
+logger.info(`Server is running at ${app.server?.hostname}:${app.server?.port}`);

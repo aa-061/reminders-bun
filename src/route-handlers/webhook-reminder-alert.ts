@@ -3,6 +3,7 @@ import { verifyQStashSignature } from "../qstash/verify";
 import { getReminderById } from "./route-helpers";
 import { sendNotifications } from "../scheduler/notification-service";
 import { deactivateReminder, updateLastAlertTime } from "../utils";
+import { logger } from "../logger";
 
 interface WebhookPayload {
   reminderId: number;
@@ -21,7 +22,7 @@ export const webhookReminderAlertRoute = async ({
 
   const isValid = await verifyQStashSignature(signature, rawBody);
   if (!isValid) {
-    console.log("Invalid QStash signature on reminder alert webhook");
+    logger.warn("Invalid QStash signature on reminder alert webhook");
     set.status = 401;
     return { error: "Invalid signature" };
   }
@@ -29,32 +30,32 @@ export const webhookReminderAlertRoute = async ({
   const payload = body as WebhookPayload;
   const { reminderId, isRecurring } = payload;
 
-  console.log(`Webhook received for reminder ${reminderId}`);
+  logger.info("Webhook received", { reminderId });
 
   // Get the reminder
-  const reminder = getReminderById(reminderId);
+  const reminder = await getReminderById(reminderId);
 
   if (!reminder) {
-    console.log(`Reminder ${reminderId} not found - may have been deleted`);
+    logger.info("Reminder not found - may have been deleted", { reminderId });
     return { status: "skipped", reason: "reminder_not_found" };
   }
 
   if (!reminder.is_active) {
-    console.log(`Reminder ${reminderId} is inactive - skipping`);
+    logger.info("Reminder is inactive - skipping", { reminderId });
     return { status: "skipped", reason: "inactive" };
   }
 
   // Send notifications
-  console.log(`Sending notifications for '${reminder.title}'`);
+  logger.info("Sending notifications", { title: reminder.title });
   await sendNotifications(reminder, reminder.reminders);
 
   // Update last alert time
-  updateLastAlertTime(reminder.id!, new Date());
+  await updateLastAlertTime(reminder.id!, new Date());
 
   // Deactivate one-time reminders after sending
   if (!isRecurring && !reminder.is_recurring) {
-    deactivateReminder(reminder.id!, reminder.title);
-    console.log(`One-time reminder '${reminder.title}' deactivated`);
+    await deactivateReminder(reminder.id!, reminder.title);
+    logger.info("One-time reminder deactivated", { title: reminder.title });
   }
 
   return { status: "ok", reminderTitle: reminder.title };

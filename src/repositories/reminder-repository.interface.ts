@@ -1,13 +1,13 @@
 import type { TReminder, TCreateReminderInput } from "../schemas";
 
 export interface IReminderRepository {
-  findAll(): TReminder[];
-  findActive(): TReminder[];
-  findById(id: number): TReminder | null;
-  create(data: TCreateReminderInput): { id: number };
-  update(id: number, data: Partial<TCreateReminderInput>): boolean;
-  delete(id: number): boolean;
-  deleteBulk(ids: number[]): number;
-  deactivate(id: number): boolean;
-  updateLastAlertTime(id: number, time: Date): boolean;
+  findAll(): Promise<TReminder[]>;
+  findActive(): Promise<TReminder[]>;
+  findById(id: number): Promise<TReminder | null>;
+  create(data: TCreateReminderInput): Promise<{ id: number }>;
+  update(id: number, data: Partial<TCreateReminderInput>): Promise<boolean>;
+  delete(id: number): Promise<boolean>;
+  deleteBulk(ids: number[]): Promise<number>;
+  deactivate(id: number): Promise<boolean>;
+  updateLastAlertTime(id: number, time: Date): Promise<boolean>;
 }

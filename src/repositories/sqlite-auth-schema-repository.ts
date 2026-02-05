@@ -1,11 +1,11 @@
-import { Database } from "bun:sqlite";
+import type { Client } from "@libsql/client";
 import type { IAuthSchemaRepository } from "./auth-schema-repository.interface";
 
 export class SQLiteAuthSchemaRepository implements IAuthSchemaRepository {
-  constructor(private db: Database) {}
+  constructor(private client: Client) {}
 
-  initialize(): void {
-    this.db.run(`
+  async initialize(): Promise<void> {
+    await this.client.execute(`
       CREATE TABLE IF NOT EXISTS user (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -17,7 +17,7 @@ export class SQLiteAuthSchemaRepository implements IAuthSchemaRepository {
       )
     `);
 
-    this.db.run(`
+    await this.client.execute(`
       CREATE TABLE IF NOT EXISTS session (
         id TEXT PRIMARY KEY,
         "expiresAt" TEXT NOT NULL,
@@ -30,7 +30,7 @@ export class SQLiteAuthSchemaRepository implements IAuthSchemaRepository {
       )
     `);
 
-    this.db.run(`
+    await this.client.execute(`
       CREATE TABLE IF NOT EXISTS account (
         id TEXT PRIMARY KEY,
         "accountId" TEXT NOT NULL,
@@ -48,7 +48,7 @@ export class SQLiteAuthSchemaRepository implements IAuthSchemaRepository {
       )
     `);
 
-    this.db.run(`
+    await this.client.execute(`
       CREATE TABLE IF NOT EXISTS verification (
         id TEXT PRIMARY KEY,
         identifier TEXT NOT NULL,

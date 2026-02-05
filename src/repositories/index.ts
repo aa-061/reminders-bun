@@ -1,4 +1,4 @@
-import { db } from "../db";
+import { client } from "../db";
 import type { IReminderRepository } from "./reminder-repository.interface";
 import { SQLiteReminderRepository } from "./sqlite-reminder-repository";
 import type { IAppSettingsRepository } from "./app-settings-repository.interface";
@@ -12,21 +12,21 @@ let authSchemaRepository: IAuthSchemaRepository | null = null;
 
 export function getReminderRepository(): IReminderRepository {
   if (!repository) {
-    repository = new SQLiteReminderRepository(db);
+    repository = new SQLiteReminderRepository(client);
   }
   return repository;
 }
 
 export function getAppSettingsRepository(): IAppSettingsRepository {
   if (!appSettingsRepository) {
-    appSettingsRepository = new SQLiteAppSettingsRepository();
+    appSettingsRepository = new SQLiteAppSettingsRepository(client);
   }
   return appSettingsRepository;
 }
 
 export function getAuthSchemaRepository(): IAuthSchemaRepository {
   if (!authSchemaRepository) {
-    authSchemaRepository = new SQLiteAuthSchemaRepository(db);
+    authSchemaRepository = new SQLiteAuthSchemaRepository(client);
   }
   return authSchemaRepository;
 }
