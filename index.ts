@@ -37,8 +37,25 @@ export const app = new Elysia()
       credentials: true,
     }),
   )
-  .onError(({ error, set }) => {
-    logger.error("Unhandled error", { message: (error as Error).message, stack: (error as Error).stack });
+  .onError(({ error, set, code, request }) => {
+    // Handle NOT_FOUND errors with 404 status instead of 500
+    if (code === "NOT_FOUND") {
+      // Log 404s at debug level (not error) to avoid cluttering logs
+      // Common with health checks, favicon requests, etc.
+      logger.debug("Route not found", {
+        path: new URL(request.url).pathname,
+        method: request.method
+      });
+      set.status = 404;
+      return { error: "Not Found", message: "The requested resource was not found" };
+    }
+
+    // Log actual server errors
+    logger.error("Unhandled error", {
+      message: (error as Error).message,
+      stack: (error as Error).stack,
+      path: new URL(request.url).pathname
+    });
     set.status = 500;
 
     const errorMessage = (error as Error).message || "Unknown error occurred.";
@@ -46,6 +63,20 @@ export const app = new Elysia()
   })
 
   // ============ PUBLIC ROUTES ============
+
+  // Root route - API info
+  .get("/", () => ({
+    name: "Reminders API",
+    version: "1.0.0",
+    status: "ok",
+    endpoints: {
+      health: "/health",
+      auth: "/api/auth/*",
+      reminders: "/reminders",
+      docs: "/swagger"
+    },
+    message: "Use /swagger for API documentation"
+  }))
 
   .get("/health", () => ({
     status: "ok",

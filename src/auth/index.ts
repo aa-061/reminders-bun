@@ -26,6 +26,17 @@ export const auth = betterAuth({
     updateAge: 60 * 60 * 24, // Update session every 24 hours
   },
   trustedOrigins: [process.env.CORS_ORIGIN || "http://localhost:3000"],
+  advanced: {
+    crossSubDomainCookies: {
+      enabled: true,
+      domain: process.env.COOKIE_DOMAIN || undefined,
+    },
+    defaultCookieAttributes: {
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+    },
+  },
 });
 
 export type Auth = typeof auth;
