@@ -57,3 +57,19 @@ await client.execute(`
     value TEXT
   )
 `);
+
+await client.execute(`
+  CREATE TABLE IF NOT EXISTS modes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mode TEXT NOT NULL CHECK(mode IN ('email', 'sms', 'call', 'push', 'ical')),
+    address TEXT NOT NULL,
+    is_default INTEGER DEFAULT 0 CHECK(is_default IN (0, 1)),
+    user_id TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, address)
+  )
+`);
+
+await client.execute(`
+  CREATE INDEX IF NOT EXISTS idx_modes_user_id ON modes(user_id)
+`);

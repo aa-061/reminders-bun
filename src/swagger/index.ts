@@ -19,6 +19,10 @@ export const swaggerMainConfig: ElysiaSwaggerConfig = {
         description: "Manage reminder operations (requires active session)",
       },
       {
+        name: "Modes",
+        description: "Manage notification modes (email, SMS, call) (requires active session)",
+      },
+      {
         name: "Webhooks",
         description: "Webhook endpoints for reminder alerts (QStash signature-verified)",
       },
@@ -55,5 +59,9 @@ export * from "./swaggerCreateReminder";
 export * from "./swaggerUpdateReminder";
 export * from "./swaggerDeleteReminder";
 export * from "./swaggerDeleteRemindersBulk";
+export * from "./swaggerGetModes";
+export * from "./swaggerCreateMode";
+export * from "./swaggerUpdateMode";
+export * from "./swaggerDeleteMode";
 export * from "./swaggerWebhookAlert";
 export * from "./swaggerWebhookCleanup";

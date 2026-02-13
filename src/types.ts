@@ -1,6 +1,7 @@
 export interface Contact {
-  mode: "email" | "sms";
+  mode: "email" | "sms" | "call";
   address: string;
+  isDefault?: boolean;
 }
 
 export interface Reminder {

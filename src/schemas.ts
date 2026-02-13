@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const defaultEmailAddress = process.env.DEFAULT_EMAIL;
 
-export const ModeEnum = z.enum(["email", "sms", "push", "ical"]);
+export const ModeEnum = z.enum(["email", "sms", "call", "push", "ical"]);
 export type TMode = z.infer<typeof ModeEnum>;
 
 export const ReminderModeSchema = z.object({
@@ -139,3 +139,36 @@ export const ReminderDTOSchema = z.object({
 });
 
 export type TReminderDTO = z.infer<typeof ReminderDTOSchema>;
+
+// Phone validation using E.164 format
+const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+
+// Mode Schema for user notification modes table
+export const ModeSchema = z
+  .object({
+    id: z.number().describe("Unique identifier of the mode"),
+    mode: ModeEnum.describe("Mode of contact"),
+    address: z.string().min(1).describe("Contact address (email or phone)"),
+    isDefault: z.boolean().default(false).describe("Whether this is the default mode"),
+    user_id: z.string().describe("User ID (from better-auth)"),
+  })
+  .refine(
+    (data) => {
+      if (data.mode === "email") {
+        return z.string().email().safeParse(data.address).success;
+      }
+      if (data.mode === "sms" || data.mode === "call") {
+        return phoneRegex.test(data.address);
+      }
+      return true;
+    },
+    {
+      message: "Invalid format for selected mode type",
+      path: ["address"],
+    },
+  );
+
+export const CreateModeInputSchema = ModeSchema.omit({ id: true, user_id: true });
+
+export type TModeRecord = z.infer<typeof ModeSchema>;
+export type TCreateModeInput = z.infer<typeof CreateModeInputSchema>;
