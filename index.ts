@@ -108,6 +108,15 @@ export const app = new Elysia()
       .delete("/:id", routes.deleteReminderRoute, s.swaggerDeleteReminder),
   )
 
+  .group("/modes", (app) =>
+    app
+      .onBeforeHandle(requireAuth)
+      .get("/", routes.getModesRoute, s.swaggerGetModes)
+      .post("/", routes.createModeRoute, s.swaggerCreateMode)
+      .put("/:id", routes.updateModeRoute, s.swaggerUpdateMode)
+      .delete("/:id", routes.deleteModeRoute, s.swaggerDeleteMode),
+  )
+
   .listen(PORT || 8080);
 
 logger.info(`Server is running at ${app.server?.hostname}:${app.server?.port}`);
