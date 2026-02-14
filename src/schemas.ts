@@ -172,3 +172,16 @@ export const CreateModeInputSchema = ModeSchema.omit({ id: true, user_id: true }
 
 export type TModeRecord = z.infer<typeof ModeSchema>;
 export type TCreateModeInput = z.infer<typeof CreateModeInputSchema>;
+
+// Alert Preset Schema for user alert presets table
+export const AlertPresetSchema = z.object({
+  id: z.number().describe("Unique identifier of the alert preset"),
+  name: z.string().min(1).max(100).describe("Name of the alert preset"),
+  ms: z.number().min(3000).describe("Alert time in milliseconds before the reminder"),
+  user_id: z.string().describe("User ID (from better-auth)"),
+});
+
+export const CreateAlertPresetInputSchema = AlertPresetSchema.omit({ id: true, user_id: true });
+
+export type TAlertPresetRecord = z.infer<typeof AlertPresetSchema>;
+export type TCreateAlertPresetInput = z.infer<typeof CreateAlertPresetInputSchema>;

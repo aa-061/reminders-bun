@@ -117,6 +117,15 @@ export const app = new Elysia()
       .delete("/:id", routes.deleteModeRoute, s.swaggerDeleteMode),
   )
 
+  .group("/alerts", (app) =>
+    app
+      .onBeforeHandle(requireAuth)
+      .get("/", routes.getAlertPresetsRoute, s.swaggerGetAlertPresets)
+      .post("/", routes.createAlertPresetRoute, s.swaggerCreateAlertPreset)
+      .put("/:id", routes.updateAlertPresetRoute, s.swaggerUpdateAlertPreset)
+      .delete("/:id", routes.deleteAlertPresetRoute, s.swaggerDeleteAlertPreset),
+  )
+
   .listen(PORT || 8080);
 
 logger.info(`Server is running at ${app.server?.hostname}:${app.server?.port}`);

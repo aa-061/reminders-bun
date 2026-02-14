@@ -9,6 +9,10 @@ import { getModesRoute } from "./get-modes";
 import { createModeRoute } from "./create-mode";
 import { updateModeRoute } from "./update-mode";
 import { deleteModeRoute } from "./delete-mode";
+import { getAlertPresetsRoute } from "./get-alert-presets";
+import { createAlertPresetRoute } from "./create-alert-preset";
+import { updateAlertPresetRoute } from "./update-alert-preset";
+import { deleteAlertPresetRoute } from "./delete-alert-preset";
 
 export const routes = {
   getReminderByIdRoute,
@@ -22,6 +26,10 @@ export const routes = {
   createModeRoute,
   updateModeRoute,
   deleteModeRoute,
+  getAlertPresetsRoute,
+  createAlertPresetRoute,
+  updateAlertPresetRoute,
+  deleteAlertPresetRoute,
 };
 
 export * from "./route-helpers";

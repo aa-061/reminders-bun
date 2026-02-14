@@ -73,3 +73,17 @@ await client.execute(`
 await client.execute(`
   CREATE INDEX IF NOT EXISTS idx_modes_user_id ON modes(user_id)
 `);
+
+await client.execute(`
+  CREATE TABLE IF NOT EXISTS alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    ms INTEGER NOT NULL CHECK(ms >= 3000),
+    user_id TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+await client.execute(`
+  CREATE INDEX IF NOT EXISTS idx_alerts_user_id ON alerts(user_id)
+`);

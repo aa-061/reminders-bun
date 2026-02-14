@@ -7,11 +7,14 @@ import type { IAuthSchemaRepository } from "./auth-schema-repository.interface";
 import { SQLiteAuthSchemaRepository } from "./sqlite-auth-schema-repository";
 import type { IModeRepository } from "./mode-repository.interface";
 import { SQLiteModeRepository } from "./sqlite-mode-repository";
+import type { IAlertPresetRepository } from "./alert-preset-repository.interface";
+import { SQLiteAlertPresetRepository } from "./sqlite-alert-preset-repository";
 
 let repository: IReminderRepository | null = null;
 let appSettingsRepository: IAppSettingsRepository | null = null;
 let authSchemaRepository: IAuthSchemaRepository | null = null;
 let modeRepository: IModeRepository | null = null;
+let alertPresetRepository: IAlertPresetRepository | null = null;
 
 export function getReminderRepository(): IReminderRepository {
   if (!repository) {
@@ -41,7 +44,15 @@ export function getModeRepository(): IModeRepository {
   return modeRepository;
 }
 
+export function getAlertPresetRepository(): IAlertPresetRepository {
+  if (!alertPresetRepository) {
+    alertPresetRepository = new SQLiteAlertPresetRepository(client);
+  }
+  return alertPresetRepository;
+}
+
 export type { IReminderRepository };
 export type { IAppSettingsRepository };
 export type { IAuthSchemaRepository };
 export type { IModeRepository };
+export type { IAlertPresetRepository };
