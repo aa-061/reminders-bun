@@ -90,7 +90,15 @@ async function processAlerts(
   if (alertsToFire.length > 0) {
     logger.info("Alert triggered, sending notifications", { title: reminder.title });
 
-    await sendNotifications(reminder, reminder.reminders);
+    const alert = alertsToFire[0]; // Process the first alert
+    await sendNotifications(
+      {
+        reminder,
+        alertName: `Alert (${alert.time}ms before)`,
+        alertMs: alert.time,
+      },
+      reminder.reminders
+    );
 
     // Update last alert time to prevent duplicate alerts
     await updateLastAlertTime(reminder.id!, now);

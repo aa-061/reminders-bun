@@ -20,3 +20,10 @@ export interface Reminder {
   is_active?: boolean;
 }
 
+// ICS Calendar Event Types
+export interface ICSEventData {
+  reminder: Reminder;
+  alertName?: string;
+  alertMs?: number;
+}
+

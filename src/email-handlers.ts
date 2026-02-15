@@ -1,85 +1,355 @@
 import sgMail from "@sendgrid/mail";
-import * as nodemailer from "nodemailer";
+import nodemailer from "nodemailer";
 import { logger } from "./logger";
+import { generateICSEvent, generateICSFilename } from "./ics-generator";
+import type { TReminder } from "./schemas";
 
-const MAIL_SERVICE =
-  (process.env.MAIL_SERVICE as "sendgrid" | "mailtrap") || "sendgrid";
+// Initialize SendGrid if API key is available
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+}
 
-// SendGrid Config
-const SENDGRID_KEY = process.env.SENDGRID_API_KEY;
-const SENDGRID_FROM = process.env.SENDGRID_FROM_EMAIL;
-
-// Mailtrap (SMTP) Config
-const MAILTRAP_HOST = process.env.MAILTRAP_HOST;
-const MAILTRAP_PORT = process.env.MAILTRAP_PORT;
-const MAILTRAP_USER = process.env.MAILTRAP_USER;
-const MAILTRAP_PASS = process.env.MAILTRAP_PASS;
-
-if (SENDGRID_KEY && MAIL_SERVICE === "sendgrid") sgMail.setApiKey(SENDGRID_KEY);
-
-const mailtrapTransporter = nodemailer.createTransport({
-  host: MAILTRAP_HOST,
-  port: MAILTRAP_PORT ? parseInt(MAILTRAP_PORT) : 2525,
+// Mailtrap configuration for development
+const mailtrapTransport = nodemailer.createTransport({
+  host: process.env.MAILTRAP_HOST || "sandbox.smtp.mailtrap.io",
+  port: parseInt(process.env.MAILTRAP_PORT || "587"),
   auth: {
-    user: MAILTRAP_USER,
-    pass: MAILTRAP_PASS,
+    user: process.env.MAILTRAP_USER,
+    pass: process.env.MAILTRAP_PASS,
   },
 });
 
-const mailtrapEmail = async (to: string, subject: string, content: string) => {
-  if (!MAILTRAP_HOST || !MAILTRAP_USER || !MAILTRAP_PASS) {
-    logger.warn("Skipping Mailtrap email - SMTP config missing");
-    return;
-  }
+export interface EmailAttachment {
+  filename: string;
+  content: string;
+  type: string;
+  disposition?: "attachment" | "inline";
+}
 
-  const text = content || "You have a new reminder!";
-  const html = `<p>${text}</p>`;
+export interface SendEmailOptions {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+  attachments?: EmailAttachment[];
+}
 
-  try {
-    const info = await mailtrapTransporter.sendMail({
-      from: SENDGRID_FROM || "no-reply@reminder-app.com",
-      to,
-      subject,
-      text,
-      html,
-    });
-    logger.info("Mailtrap email sent", { messageId: info.messageId, to });
-  } catch (error: any) {
-    logger.error("Mailtrap send failed", { error: error.message });
-  }
-};
+/**
+ * Sends an email using the configured mail service (SendGrid or Mailtrap)
+ */
+export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
+  const { to, subject, html, text, attachments } = options;
+  const mailService = process.env.MAIL_SERVICE || "mailtrap";
 
-const sendgridEmail = async (to: string, subject: string, content: string) => {
-  if (!SENDGRID_KEY || !SENDGRID_FROM) {
-    logger.warn("Skipping SendGrid email - API keys missing");
-    return;
-  }
-
-  const text = content || "You have a new reminder!";
-  const html = `<p>${text}</p>`;
+  logger.info("Sending email", {
+    to,
+    subject,
+    service: mailService,
+    hasAttachments: !!attachments?.length,
+  });
 
   try {
-    await sgMail.send({
+    if (mailService === "sendgrid") {
+      return await sendWithSendGrid(to, subject, html, text, attachments);
+    } else {
+      return await sendWithMailtrap(to, subject, html, text, attachments);
+    }
+  } catch (error) {
+    logger.error("Failed to send email", {
+      error: error instanceof Error ? error.message : String(error),
       to,
-      from: SENDGRID_FROM,
       subject,
-      text,
-      html,
     });
-    logger.info("SendGrid email sent", { to });
-  } catch (error: any) {
-    logger.error("SendGrid send failed", { error: error.response?.body || error.message });
+    return false;
   }
-};
+}
 
-export const sendEmail = async (
+async function sendWithSendGrid(
   to: string,
   subject: string,
-  content: string
-) => {
-  if (MAIL_SERVICE === "mailtrap") {
-    return mailtrapEmail(to, subject, content);
+  html: string,
+  text?: string,
+  attachments?: EmailAttachment[]
+): Promise<boolean> {
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  if (!fromEmail) {
+    logger.error("SENDGRID_FROM_EMAIL not configured");
+    return false;
   }
 
-  return sendgridEmail(to, subject, content);
-};
+  const msg: sgMail.MailDataRequired = {
+    to,
+    from: fromEmail,
+    subject,
+    html,
+    text: text || html.replace(/<[^>]*>/g, ""),
+  };
+
+  // Add attachments if present
+  if (attachments && attachments.length > 0) {
+    msg.attachments = attachments.map((att) => ({
+      filename: att.filename,
+      content: Buffer.from(att.content).toString("base64"),
+      type: att.type,
+      disposition: att.disposition || "attachment",
+    }));
+  }
+
+  await sgMail.send(msg);
+  logger.info("Email sent via SendGrid", { to, subject });
+  return true;
+}
+
+async function sendWithMailtrap(
+  to: string,
+  subject: string,
+  html: string,
+  text?: string,
+  attachments?: EmailAttachment[]
+): Promise<boolean> {
+  const fromEmail = process.env.MAILTRAP_FROM_EMAIL || "reminders@example.com";
+
+  const mailOptions: nodemailer.SendMailOptions = {
+    from: fromEmail,
+    to,
+    subject,
+    html,
+    text: text || html.replace(/<[^>]*>/g, ""),
+  };
+
+  // Add attachments if present
+  if (attachments && attachments.length > 0) {
+    mailOptions.attachments = attachments.map((att) => ({
+      filename: att.filename,
+      content: att.content,
+      contentType: att.type,
+    }));
+  }
+
+  await mailtrapTransport.sendMail(mailOptions);
+  logger.info("Email sent via Mailtrap", { to, subject });
+  return true;
+}
+
+/**
+ * Generates an HTML email body for a reminder notification
+ */
+export function generateReminderEmailHtml(
+  reminder: TReminder,
+  alertName?: string
+): string {
+  const eventDate = new Date(reminder.date);
+  const formattedDate = eventDate.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const formattedTime = eventDate.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  let html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${reminder.title}</title>
+      <style>
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          background-color: #f5f5f5;
+        }
+        .container {
+          background-color: #ffffff;
+          border-radius: 8px;
+          padding: 30px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+          border-bottom: 2px solid #4f46e5;
+          padding-bottom: 15px;
+          margin-bottom: 20px;
+        }
+        .header h1 {
+          color: #4f46e5;
+          margin: 0 0 5px 0;
+          font-size: 24px;
+        }
+        .alert-badge {
+          display: inline-block;
+          background-color: #fef3c7;
+          color: #92400e;
+          padding: 4px 12px;
+          border-radius: 20px;
+          font-size: 14px;
+          font-weight: 500;
+        }
+        .details {
+          margin: 20px 0;
+        }
+        .detail-row {
+          display: flex;
+          margin-bottom: 12px;
+        }
+        .detail-label {
+          font-weight: 600;
+          color: #6b7280;
+          width: 100px;
+          flex-shrink: 0;
+        }
+        .detail-value {
+          color: #111827;
+        }
+        .description {
+          background-color: #f9fafb;
+          padding: 15px;
+          border-radius: 6px;
+          margin-top: 20px;
+          border-left: 4px solid #4f46e5;
+        }
+        .footer {
+          margin-top: 30px;
+          padding-top: 20px;
+          border-top: 1px solid #e5e7eb;
+          text-align: center;
+          color: #9ca3af;
+          font-size: 12px;
+        }
+        .calendar-note {
+          background-color: #ecfdf5;
+          border: 1px solid #a7f3d0;
+          padding: 12px;
+          border-radius: 6px;
+          margin-top: 20px;
+          font-size: 14px;
+          color: #065f46;
+        }
+        .calendar-note strong {
+          color: #047857;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>${reminder.title}</h1>
+          ${alertName ? `<span class="alert-badge">${alertName}</span>` : ""}
+        </div>
+
+        <div class="details">
+          <div class="detail-row">
+            <span class="detail-label">Date:</span>
+            <span class="detail-value">${formattedDate}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Time:</span>
+            <span class="detail-value">${formattedTime}</span>
+          </div>
+          ${
+            reminder.location
+              ? `
+          <div class="detail-row">
+            <span class="detail-label">Location:</span>
+            <span class="detail-value">${reminder.location}</span>
+          </div>
+          `
+              : ""
+          }
+          ${
+            reminder.is_recurring
+              ? `
+          <div class="detail-row">
+            <span class="detail-label">Recurring:</span>
+            <span class="detail-value">Yes</span>
+          </div>
+          `
+              : ""
+          }
+        </div>
+
+        ${
+          reminder.description
+            ? `
+        <div class="description">
+          <p style="margin: 0;">${reminder.description.replace(/\n/g, "<br>")}</p>
+        </div>
+        `
+            : ""
+        }
+
+        <div class="calendar-note">
+          <strong>Add to Calendar:</strong> An .ics calendar file is attached to this email.
+          Click on it to add this reminder to your calendar app (Google Calendar, Apple Calendar, Outlook, etc.)
+        </div>
+
+        <div class="footer">
+          <p>This reminder was sent by Reminders App</p>
+          <p>To manage your reminders, visit your dashboard</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return html;
+}
+
+/**
+ * Sends a reminder email with an ICS calendar attachment
+ */
+export async function sendReminderEmail(
+  to: string,
+  reminder: TReminder,
+  alertName?: string,
+  alertMs?: number
+): Promise<boolean> {
+  // Generate ICS content
+  const icsContent = await generateICSEvent({
+    reminder,
+    alertName,
+    alertMs,
+  });
+
+  // Build attachments array
+  const attachments: EmailAttachment[] = [];
+  if (icsContent) {
+    attachments.push({
+      filename: generateICSFilename(reminder),
+      content: icsContent,
+      type: "text/calendar",
+      disposition: "attachment",
+    });
+  }
+
+  // Generate email HTML
+  const html = generateReminderEmailHtml(reminder, alertName);
+
+  // Generate plain text version
+  const text = `
+${reminder.title}
+${alertName ? `Alert: ${alertName}` : ""}
+
+Date: ${new Date(reminder.date).toLocaleString()}
+${reminder.location ? `Location: ${reminder.location}` : ""}
+${reminder.description ? `\n${reminder.description}` : ""}
+
+---
+This reminder was sent by Reminders App
+  `.trim();
+
+  return sendEmail({
+    to,
+    subject: `Reminder: ${reminder.title}`,
+    html,
+    text,
+    attachments,
+  });
+}
