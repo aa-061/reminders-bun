@@ -43,7 +43,7 @@ export interface ICSGeneratorOptions {
  * @returns The ICS file content as a string, or null if generation failed
  */
 export async function generateICSEvent(
-  options: ICSGeneratorOptions
+  options: ICSGeneratorOptions,
 ): Promise<string | null> {
   const { reminder, alertName, alertMs = 0 } = options;
 
@@ -92,7 +92,7 @@ export async function generateICSEvent(
     // Add organizer info (optional, uses app name)
     organizer: {
       name: "Reminders App",
-      email: "noreply@reminders.app",
+      email: "dev7c4@gmail.com",
     },
   };
 
@@ -147,10 +147,13 @@ function cronToRRule(cron: string): string | null {
     }
     // Handle comma-separated days like "1,3,5" (Mon, Wed, Fri)
     if (dayOfWeek.includes(",")) {
-      const dayList = dayOfWeek.split(",").map((d) => {
-        const idx = parseInt(d.trim());
-        return days[idx] || null;
-      }).filter(Boolean);
+      const dayList = dayOfWeek
+        .split(",")
+        .map((d) => {
+          const idx = parseInt(d.trim());
+          return days[idx] || null;
+        })
+        .filter(Boolean);
       if (dayList.length > 0) {
         return `FREQ=WEEKLY;BYDAY=${dayList.join(",")}`;
       }
