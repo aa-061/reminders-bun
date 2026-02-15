@@ -69,7 +69,7 @@ async function sendWithSendGrid(
   subject: string,
   html: string,
   text?: string,
-  attachments?: EmailAttachment[]
+  attachments?: EmailAttachment[],
 ): Promise<boolean> {
   const fromEmail = process.env.SENDGRID_FROM_EMAIL;
   if (!fromEmail) {
@@ -105,10 +105,9 @@ async function sendWithMailtrap(
   subject: string,
   html: string,
   text?: string,
-  attachments?: EmailAttachment[]
+  attachments?: EmailAttachment[],
 ): Promise<boolean> {
   const fromEmail = process.env.MAILTRAP_FROM_EMAIL || "reminders@example.com";
-
   const mailOptions: nodemailer.SendMailOptions = {
     from: fromEmail,
     to,
@@ -126,6 +125,7 @@ async function sendWithMailtrap(
     }));
   }
 
+  logger.info("Sending email via Mailtrap", { to, subject });
   await mailtrapTransport.sendMail(mailOptions);
   logger.info("Email sent via Mailtrap", { to, subject });
   return true;
@@ -136,9 +136,22 @@ async function sendWithMailtrap(
  */
 export function generateReminderEmailHtml(
   reminder: TReminder,
-  alertName?: string
+  alertName?: string,
 ): string {
   const eventDate = new Date(reminder.date);
+
+  // Validate date before formatting
+  if (isNaN(eventDate.getTime())) {
+    logger.error("Invalid reminder date in email generation", {
+      reminderId: reminder.id,
+      dateValue: reminder.date,
+      dateType: typeof reminder.date,
+    });
+    throw new Error(
+      `Invalid date for reminder ${reminder.id}: ${reminder.date}`,
+    );
+  }
+
   const formattedDate = eventDate.toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
@@ -309,8 +322,28 @@ export async function sendReminderEmail(
   to: string,
   reminder: TReminder,
   alertName?: string,
-  alertMs?: number
+  alertMs?: number,
 ): Promise<boolean> {
+  logger.info("Preparing to send reminder email", {
+    to,
+    reminderId: reminder.id,
+    reminderDate: reminder.date,
+    dateType: typeof reminder.date,
+    alertName,
+    alertMs,
+  });
+
+  // Validate reminder date
+  const testDate = new Date(reminder.date);
+  if (isNaN(testDate.getTime())) {
+    logger.error("Cannot send email - invalid reminder date", {
+      reminderId: reminder.id,
+      dateValue: reminder.date,
+      dateType: typeof reminder.date,
+    });
+    return false;
+  }
+
   // Generate ICS content
   const icsContent = await generateICSEvent({
     reminder,

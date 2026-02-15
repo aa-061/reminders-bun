@@ -2,7 +2,6 @@ import { logger } from "../logger";
 import type { TReminderMode } from "../schemas";
 import { sendNotifications } from "../scheduler/notification-service";
 import { getReminderRepository } from "../repositories";
-import { getAlertPresetRepository } from "../repositories";
 import { verifyQStashSignature } from "../qstash/verify";
 import {
   shouldDeactivateOneTime,
@@ -10,11 +9,31 @@ import {
 } from "../scheduler/helpers";
 import type { Context } from "elysia";
 
+/**
+ * Formats milliseconds into a human-readable alert name
+ */
+function formatAlertName(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) {
+    return `${days} day${days > 1 ? "s" : ""} before`;
+  } else if (hours > 0) {
+    return `${hours} hour${hours > 1 ? "s" : ""} before`;
+  } else if (minutes > 0) {
+    return `${minutes} minute${minutes > 1 ? "s" : ""} before`;
+  } else if (seconds > 0) {
+    return `${seconds} second${seconds > 1 ? "s" : ""} before`;
+  } else {
+    return "At event time";
+  }
+}
+
 interface WebhookPayload {
   reminderId: number;
-  alertId: number;
-  userId: string;
-  scheduledFor: number;
+  alertTime: string; // ISO format timestamp
 }
 
 export const webhookReminderAlertRoute = async ({
@@ -36,13 +55,22 @@ export const webhookReminderAlertRoute = async ({
   }
 
   const payload = body as WebhookPayload;
-  const { reminderId, alertId, userId, scheduledFor } = payload;
+  const { reminderId, alertTime } = payload;
+
+  // Validate webhook payload
+  if (!reminderId || !alertTime) {
+    logger.error("Invalid webhook payload - missing required fields", {
+      reminderId,
+      alertTime,
+      body: JSON.stringify(body),
+    });
+    set.status = 400;
+    return { error: "Invalid payload" };
+  }
 
   logger.info("Processing reminder alert webhook", {
     reminderId,
-    alertId,
-    userId,
-    scheduledFor: new Date(scheduledFor).toISOString(),
+    alertTime,
   });
 
   // Get reminder from database
@@ -50,25 +78,31 @@ export const webhookReminderAlertRoute = async ({
   const reminder = await reminderRepo.findById(reminderId);
 
   if (!reminder) {
-    logger.warn("Reminder not found for webhook", { reminderId, userId });
+    logger.warn("Reminder not found for webhook", { reminderId });
     set.status = 404;
     return { error: "Reminder not found" };
   }
+
+  // Log reminder data for debugging
+  logger.info("Fetched reminder from database", {
+    reminderId: reminder.id,
+    reminderDate: reminder.date,
+    dateType: typeof reminder.date,
+    title: reminder.title,
+  });
 
   if (!reminder.is_active) {
     logger.info("Reminder is inactive, skipping notification", { reminderId });
     return { status: "ok", message: "Reminder inactive" };
   }
 
-  // Get alert preset details
-  const alertRepo = getAlertPresetRepository();
-  const alert = await alertRepo.findById(alertId);
+  // Calculate alert offset from reminder date and alert time
+  const reminderDate = new Date(reminder.date);
+  const alertDate = new Date(alertTime);
+  const alertMs = reminderDate.getTime() - alertDate.getTime();
 
-  if (!alert) {
-    logger.warn("Alert preset not found", { alertId, userId });
-    set.status = 404;
-    return { error: "Alert not found" };
-  }
+  // Format alert name based on offset
+  const alertName = formatAlertName(alertMs);
 
   // Parse reminder modes (contacts to notify)
   let contacts: TReminderMode[] = [];
@@ -89,8 +123,8 @@ export const webhookReminderAlertRoute = async ({
   await sendNotifications(
     {
       reminder,
-      alertName: alert.name,
-      alertMs: alert.ms,
+      alertName,
+      alertMs,
     },
     contacts
   );

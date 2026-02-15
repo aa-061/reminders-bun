@@ -14,7 +14,7 @@ export class SQLiteReminderRepository implements IReminderRepository {
       id: Number(row.id),
       title: row.title as string,
       date: row.date as string,
-      location: row.location ? JSON.parse(row.location as string) : null,
+      location: (row.location as string) ?? null,
       description: row.description as string,
       reminders: row.reminders ? JSON.parse(row.reminders as string) : [],
       alerts: row.alerts ? JSON.parse(row.alerts as string) : [],
@@ -59,7 +59,7 @@ export class SQLiteReminderRepository implements IReminderRepository {
       args: [
         data.title,
         data.date,
-        data.location ? JSON.stringify(data.location) : null,
+        data.location ?? null,
         data.description,
         JSON.stringify(data.reminders ?? []),
         JSON.stringify(data.alerts ?? []),
@@ -87,7 +87,7 @@ export class SQLiteReminderRepository implements IReminderRepository {
     }
     if (data.location !== undefined) {
       fields.push("location = ?");
-      args.push(data.location ? JSON.stringify(data.location) : null);
+      args.push(data.location ?? null);
     }
     if (data.description !== undefined) {
       fields.push("description = ?");

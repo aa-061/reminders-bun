@@ -13,7 +13,7 @@ export interface NotificationContext {
  */
 export async function sendNotifications(
   context: NotificationContext,
-  contacts: TReminderMode[]
+  contacts: TReminderMode[],
 ): Promise<void> {
   const { reminder, alertName, alertMs } = context;
 
@@ -29,7 +29,16 @@ export async function sendNotifications(
     try {
       switch (contact.mode) {
         case "email":
-          await sendReminderEmail(contact.address, reminder, alertName, alertMs);
+          logger.info("Sending email notification", {
+            reminderId: reminder.id,
+            to: contact.address,
+          });
+          await sendReminderEmail(
+            contact.address,
+            reminder,
+            alertName,
+            alertMs,
+          );
           logger.info("Email notification sent", {
             reminderId: reminder.id,
             to: contact.address,

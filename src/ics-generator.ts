@@ -49,6 +49,16 @@ export async function generateICSEvent(
 
   const eventDate = new Date(reminder.date);
 
+  // Validate date before proceeding
+  if (isNaN(eventDate.getTime())) {
+    logger.error("Invalid reminder date in ICS generation", {
+      reminderId: reminder.id,
+      dateValue: reminder.date,
+      dateType: typeof reminder.date,
+    });
+    return null;
+  }
+
   // Build description with all reminder details
   let description = reminder.description || "";
   if (reminder.location) {
