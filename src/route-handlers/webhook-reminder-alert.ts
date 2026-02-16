@@ -41,8 +41,10 @@ export const webhookReminderAlertRoute = async ({
   body,
   set,
 }: Context) => {
+  logger.warn("### in webhookReminderAlertRoute");
   // Verify QStash signature in production
   if (process.env.NODE_ENV === "production") {
+    logger.warn("### in webhookReminderAlertRoute and is production");
     const signature = request.headers.get("upstash-signature");
     const rawBody = JSON.stringify(body);
     const isValid = await verifyQStashSignature(signature, rawBody);
@@ -56,7 +58,7 @@ export const webhookReminderAlertRoute = async ({
 
   const payload = body as WebhookPayload;
   const { reminderId, alertTime } = payload;
-
+  logger.warn("### in webhookReminderAlertRoute and payload = ", { payload });
   // Validate webhook payload
   if (!reminderId || !alertTime) {
     logger.error("Invalid webhook payload - missing required fields", {
@@ -126,7 +128,7 @@ export const webhookReminderAlertRoute = async ({
       alertName,
       alertMs,
     },
-    contacts
+    contacts,
   );
 
   // Check if reminder should be deactivated
