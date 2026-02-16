@@ -24,7 +24,10 @@ export async function scheduleReminderAlert(
   const { reminderId, alertTime, title } = options;
 
   if (!qstash) {
-    logger.debug("Would schedule reminder (dev mode)", { reminderId, alertTime: alertTime.toISOString() });
+    logger.debug("Would schedule reminder (dev mode)", {
+      reminderId,
+      alertTime: alertTime.toISOString(),
+    });
     return { success: true, messageId: "dev-mode" };
   }
 
@@ -49,11 +52,19 @@ export async function scheduleReminderAlert(
       },
     });
 
-    logger.info("Scheduled alert", { title, alertTime: alertTime.toISOString(), delaySeconds });
+    logger.info("Scheduled alert", {
+      response,
+      title,
+      alertTime: alertTime.toISOString(),
+      delaySeconds,
+    });
 
     return { success: true, messageId: response.messageId };
   } catch (error) {
-    logger.error("Failed to schedule alert", { title, error: (error as Error).message });
+    logger.error("Failed to schedule alert", {
+      title,
+      error: (error as Error).message,
+    });
     return { success: false, error: (error as Error).message };
   }
 }
@@ -67,7 +78,10 @@ export async function scheduleRecurringReminder(
   cronExpression: string,
 ): Promise<ScheduleResult> {
   if (!qstash) {
-    logger.debug("Would schedule recurring reminder (dev mode)", { reminderId, cronExpression });
+    logger.debug("Would schedule recurring reminder (dev mode)", {
+      reminderId,
+      cronExpression,
+    });
     return { success: true, messageId: "dev-mode" };
   }
 
@@ -88,7 +102,10 @@ export async function scheduleRecurringReminder(
 
     return { success: true, messageId: response.scheduleId };
   } catch (error) {
-    logger.error("Failed to create recurring schedule", { reminderId, error: (error as Error).message });
+    logger.error("Failed to create recurring schedule", {
+      reminderId,
+      error: (error as Error).message,
+    });
     return { success: false, error: (error as Error).message };
   }
 }
@@ -132,7 +149,9 @@ export async function ensureCleanupSchedule(): Promise<void> {
 
     logger.info("Cleanup schedule created", { cron: CLEANUP_CRON });
   } catch (error) {
-    logger.error("Failed to ensure cleanup schedule", { error: (error as Error).message });
+    logger.error("Failed to ensure cleanup schedule", {
+      error: (error as Error).message,
+    });
   }
 }
 
@@ -155,7 +174,10 @@ export async function cancelScheduledReminder(
       await qstash.schedules.delete(messageId);
       return true;
     } catch (error) {
-      logger.error("Failed to cancel scheduled reminder", { messageId, error: (error as Error).message });
+      logger.error("Failed to cancel scheduled reminder", {
+        messageId,
+        error: (error as Error).message,
+      });
       return false;
     }
   }
