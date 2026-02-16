@@ -1,5 +1,6 @@
 import sgMail from "@sendgrid/mail";
 import nodemailer from "nodemailer";
+import { MailtrapTransport } from "mailtrap";
 import { logger } from "./logger";
 import { generateICSEvent, generateICSFilename } from "./ics-generator";
 import type { TReminder } from "./schemas";
@@ -9,15 +10,12 @@ if (process.env.SENDGRID_API_KEY) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 }
 
-// Mailtrap configuration for development
-const mailtrapTransport = nodemailer.createTransport({
-  host: process.env.MAILTRAP_HOST || "sandbox.smtp.mailtrap.io",
-  port: parseInt(process.env.MAILTRAP_PORT || "587"),
-  auth: {
-    user: process.env.MAILTRAP_USER,
-    pass: process.env.MAILTRAP_PASS,
-  },
-});
+// Mailtrap configuration - Production API
+const mailtrapTransport = nodemailer.createTransport(
+  MailtrapTransport({
+    token: process.env.MAILTRAP_TOKEN || "",
+  })
+);
 
 export interface EmailAttachment {
   filename: string;
@@ -107,9 +105,14 @@ async function sendWithMailtrap(
   text?: string,
   attachments?: EmailAttachment[],
 ): Promise<boolean> {
-  const fromEmail = process.env.MAILTRAP_FROM_EMAIL || "reminders@example.com";
+  const fromEmail = process.env.MAILTRAP_FROM_EMAIL || "hello@demomailtrap.com";
+  const fromName = process.env.MAILTRAP_FROM_NAME || "Reminders App";
+
   const mailOptions: nodemailer.SendMailOptions = {
-    from: fromEmail,
+    from: {
+      address: fromEmail,
+      name: fromName,
+    },
     to,
     subject,
     html,
@@ -124,8 +127,8 @@ async function sendWithMailtrap(
       contentType: att.type,
     }));
   }
-  console.log("### mailtrapTransport host is: ", process.env.MAILTRAP_HOST);
-  logger.info("Sending email via Mailtrap", { to, subject });
+
+  logger.info("Sending email via Mailtrap Production API", { to, subject });
   await mailtrapTransport.sendMail(mailOptions);
   logger.info("Email sent via Mailtrap", { to, subject });
   return true;
