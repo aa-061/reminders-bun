@@ -123,8 +123,9 @@ async function sendWithMailtrap(
   if (attachments && attachments.length > 0) {
     mailOptions.attachments = attachments.map((att) => ({
       filename: att.filename,
-      content: att.content,
+      content: Buffer.from(att.content).toString("base64"),
       contentType: att.type,
+      disposition: att.disposition || "attachment",
     }));
   }
 
