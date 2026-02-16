@@ -11,9 +11,19 @@ if (process.env.SENDGRID_API_KEY) {
 }
 
 // Mailtrap configuration - Production API
+const mailtrapToken = process.env.MAILTRAP_TOKEN || "";
+if (mailtrapToken) {
+  logger.info("Mailtrap token loaded", {
+    tokenLength: mailtrapToken.length,
+    tokenPrefix: mailtrapToken.substring(0, 8) + "..."
+  });
+} else {
+  logger.warn("MAILTRAP_TOKEN environment variable is not set");
+}
+
 const mailtrapTransport = nodemailer.createTransport(
   MailtrapTransport({
-    token: process.env.MAILTRAP_TOKEN || "",
+    token: mailtrapToken,
   })
 );
 
