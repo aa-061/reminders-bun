@@ -124,8 +124,8 @@ async function sendWithMailtrap(
       contentType: att.type,
     }));
   }
-
-  logger.info("Sending email via Mailtrap", { to, subject });
+  console.log("### Mail options prepared for Mailtrap", mailtrapTransport);
+  logger.info("Sending email via Mailtrap", { to, subject, mailtrapTransport });
   await mailtrapTransport.sendMail(mailOptions);
   logger.info("Email sent via Mailtrap", { to, subject });
   return true;
