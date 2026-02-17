@@ -13,6 +13,8 @@ import { getAlertPresetsRoute } from "./get-alert-presets";
 import { createAlertPresetRoute } from "./create-alert-preset";
 import { updateAlertPresetRoute } from "./update-alert-preset";
 import { deleteAlertPresetRoute } from "./delete-alert-preset";
+import { handleGetTelegramInfo } from "./get-telegram-info";
+import { handleTelegramWebhook } from "./webhook-telegram";
 
 export const routes = {
   getReminderByIdRoute,
@@ -32,4 +34,5 @@ export const routes = {
   deleteAlertPresetRoute,
 };
 
+export { handleGetTelegramInfo, handleTelegramWebhook };
 export * from "./route-helpers";

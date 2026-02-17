@@ -61,7 +61,7 @@ await client.execute(`
 await client.execute(`
   CREATE TABLE IF NOT EXISTS modes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    mode TEXT NOT NULL CHECK(mode IN ('email', 'sms', 'call', 'push', 'ical')),
+    mode TEXT NOT NULL CHECK(mode IN ('email', 'sms', 'call', 'push', 'ical', 'telegram')),
     address TEXT NOT NULL,
     is_default INTEGER DEFAULT 0 CHECK(is_default IN (0, 1)),
     user_id TEXT NOT NULL,

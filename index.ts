@@ -2,7 +2,7 @@ import { Elysia } from "elysia";
 import { swagger } from "@elysiajs/swagger";
 import { cors } from "@elysiajs/cors";
 import { checkReminders } from "./src/check-reminders";
-import { routes } from "./src/route-handlers";
+import { routes, handleGetTelegramInfo, handleTelegramWebhook } from "./src/route-handlers";
 import { webhookReminderAlertRoute } from "./src/route-handlers/webhook-reminder-alert";
 import { webhookCleanupRoute } from "./src/route-handlers/webhook-cleanup";
 import { ensureCleanupSchedule } from "./src/qstash/scheduler";
@@ -93,6 +93,12 @@ export const app = new Elysia()
     s.swaggerWebhookAlert,
   )
   .post("/webhooks/cleanup", webhookCleanupRoute, s.swaggerWebhookCleanup)
+
+  // Telegram webhook (no auth needed)
+  .post("/webhooks/telegram", (req) => handleTelegramWebhook(req.request))
+
+  // Telegram bot info endpoint (public)
+  .get("/api/telegram/info", handleGetTelegramInfo)
 
   // ============ PROTECTED ROUTES ============
 

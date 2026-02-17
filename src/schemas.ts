@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const defaultEmailAddress = process.env.DEFAULT_EMAIL;
 
-export const ModeEnum = z.enum(["email", "sms", "call", "push", "ical"]);
+export const ModeEnum = z.enum(["email", "sms", "call", "push", "ical", "telegram"]);
 export type TMode = z.infer<typeof ModeEnum>;
 
 export const ReminderModeSchema = z.object({
@@ -148,7 +148,7 @@ export const ModeSchema = z
   .object({
     id: z.number().describe("Unique identifier of the mode"),
     mode: ModeEnum.describe("Mode of contact"),
-    address: z.string().min(1).describe("Contact address (email or phone)"),
+    address: z.string().min(1).describe("Contact address (email, phone, or Telegram chat ID)"),
     isDefault: z.boolean().default(false).describe("Whether this is the default mode"),
     user_id: z.string().describe("User ID (from better-auth)"),
   })
@@ -159,6 +159,10 @@ export const ModeSchema = z
       }
       if (data.mode === "sms" || data.mode === "call") {
         return phoneRegex.test(data.address);
+      }
+      if (data.mode === "telegram") {
+        // Telegram chat IDs are numeric (can be negative for groups)
+        return /^-?\d+$/.test(data.address);
       }
       return true;
     },

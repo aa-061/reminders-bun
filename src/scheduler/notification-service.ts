@@ -1,4 +1,5 @@
 import { sendReminderEmail } from "../email-handlers";
+import { sendTelegramReminder } from "../telegram-handler";
 import { logger } from "../logger";
 import type { TReminder, TReminderMode } from "../schemas";
 
@@ -42,6 +43,22 @@ export async function sendNotifications(
           logger.info("Email notification sent", {
             reminderId: reminder.id,
             to: contact.address,
+          });
+          break;
+
+        case "telegram":
+          logger.info("Sending Telegram notification", {
+            reminderId: reminder.id,
+            chatId: contact.address,
+          });
+          await sendTelegramReminder(
+            contact.address,
+            reminder,
+            alertName,
+          );
+          logger.info("Telegram notification sent", {
+            reminderId: reminder.id,
+            chatId: contact.address,
           });
           break;
 
