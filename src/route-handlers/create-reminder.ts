@@ -5,10 +5,18 @@ import {
   scheduleRecurringReminder,
 } from "../qstash/scheduler";
 import { getReminderRepository } from "../repositories";
+import { auth } from "../auth";
 import { logger } from "../logger";
 
-export const createReminderRoute = async ({ body, set }: Context) => {
-  const r = body as TCreateReminderInput;
+export const createReminderRoute = async ({ body, request, set }: Context) => {
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session?.user) {
+    set.status = 401;
+    return { error: "Unauthorized" };
+  }
+
+  const r = body as TCreateReminderInput & { user_id?: string };
+  r.user_id = session.user.id;
 
   if (r.is_recurring && (!r.recurrence || !r.start_date)) {
     set.status = 400;

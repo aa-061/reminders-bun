@@ -96,6 +96,7 @@ async function processAlerts(
         reminder,
         alertName: `Alert (${alert.time}ms before)`,
         alertMs: alert.time,
+        userId: reminder.user_id,
       },
       reminder.reminders
     );

@@ -127,6 +127,7 @@ export const webhookReminderAlertRoute = async ({
       reminder,
       alertName,
       alertMs,
+      userId: reminder.user_id,
     },
     contacts,
   );

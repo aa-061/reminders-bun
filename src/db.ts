@@ -142,3 +142,37 @@ await client.execute(`
 await client.execute(`
   CREATE INDEX IF NOT EXISTS idx_alerts_user_id ON alerts(user_id)
 `);
+
+// Migration: Add user_id to reminders table
+try {
+  await client.execute(`ALTER TABLE reminders ADD COLUMN user_id TEXT`);
+  logger.info("Added user_id column to reminders table");
+} catch (error) {
+  if (!(error as Error).message.includes("duplicate column")) {
+    logger.error("Failed to add user_id column", { error });
+  }
+}
+
+await client.execute(`
+  CREATE INDEX IF NOT EXISTS idx_reminders_user_id ON reminders(user_id)
+`);
+
+// Push subscriptions table
+await client.execute(`
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    endpoint TEXT NOT NULL UNIQUE,
+    keys_p256dh TEXT NOT NULL,
+    keys_auth TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    last_used_at TEXT,
+    user_agent TEXT,
+    UNIQUE(user_id, endpoint)
+  )
+`);
+
+await client.execute(`
+  CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id
+  ON push_subscriptions(user_id)
+`);

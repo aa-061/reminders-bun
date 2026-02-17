@@ -1,5 +1,6 @@
 import { sendReminderEmail } from "../email-handlers";
 import { sendTelegramReminder } from "../telegram-handler";
+import { sendPushReminder } from "../push-handler";
 import { logger } from "../logger";
 import type { TReminder, TReminderMode } from "../schemas";
 
@@ -7,6 +8,7 @@ export interface NotificationContext {
   reminder: TReminder;
   alertName: string;
   alertMs: number;
+  userId: string;
 }
 
 /**
@@ -70,10 +72,20 @@ export async function sendNotifications(
           break;
 
         case "push":
-          // Will be implemented in Phase 4
-          logger.warn("Push notifications not yet implemented", {
-            reminderId: reminder.id,
-          });
+          if (context.userId) {
+            logger.info("Sending push notification", {
+              reminderId: reminder.id,
+              userId: context.userId,
+            });
+            await sendPushReminder(context.userId, reminder, alertName);
+            logger.info("Push notification sent", {
+              reminderId: reminder.id,
+            });
+          } else {
+            logger.warn("Cannot send push without userId", {
+              reminderId: reminder.id,
+            });
+          }
           break;
 
         case "call":

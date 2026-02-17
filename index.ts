@@ -2,7 +2,16 @@ import { Elysia } from "elysia";
 import { swagger } from "@elysiajs/swagger";
 import { cors } from "@elysiajs/cors";
 import { checkReminders } from "./src/check-reminders";
-import { routes, handleGetTelegramInfo, handleTelegramWebhook } from "./src/route-handlers";
+import {
+  routes,
+  handleGetTelegramInfo,
+  handleTelegramWebhook,
+  handleGetVapidKey,
+  handlePushSubscribe,
+  handlePushUnsubscribe,
+  handleGetSubscriptions,
+  handleTestPush,
+} from "./src/route-handlers";
 import { webhookReminderAlertRoute } from "./src/route-handlers/webhook-reminder-alert";
 import { webhookCleanupRoute } from "./src/route-handlers/webhook-cleanup";
 import { ensureCleanupSchedule } from "./src/qstash/scheduler";
@@ -99,6 +108,18 @@ export const app = new Elysia()
 
   // Telegram bot info endpoint (public)
   .get("/api/telegram/info", handleGetTelegramInfo)
+
+  // Push notification routes
+  .get("/api/push/vapid-public-key", handleGetVapidKey) // Public
+
+  .group("/api/push", (app) =>
+    app
+      .onBeforeHandle(requireAuth)
+      .post("/subscribe", handlePushSubscribe)
+      .post("/unsubscribe", handlePushUnsubscribe)
+      .get("/subscriptions", handleGetSubscriptions)
+      .post("/test", handleTestPush)
+  )
 
   // ============ PROTECTED ROUTES ============
 

@@ -79,6 +79,7 @@ const ReminderBaseSchema = z.object({
     .boolean()
     .optional()
     .describe("Indicates if the reminder is active"),
+  user_id: z.string().describe("User ID who owns this reminder"),
 });
 
 export const ReminderSchema = ReminderBaseSchema.extend({
