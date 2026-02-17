@@ -1,4 +1,5 @@
 import { createClient, type Client } from "@libsql/client";
+import { logger } from "./logger";
 
 /**
  * Create the shared database client once.
@@ -73,6 +74,60 @@ await client.execute(`
 await client.execute(`
   CREATE INDEX IF NOT EXISTS idx_modes_user_id ON modes(user_id)
 `);
+
+// Migration: Update modes table to include 'telegram' in CHECK constraint
+// SQLite doesn't support modifying CHECK constraints, so we need to recreate the table
+try {
+  // Check if the table needs migration
+  const testResult = await client.execute({
+    sql: "SELECT sql FROM sqlite_master WHERE type='table' AND name='modes'",
+    args: [],
+  });
+
+  const tableSql = testResult.rows[0]?.sql as string | undefined;
+
+  // If the table doesn't include 'telegram' in the CHECK constraint, migrate it
+  if (tableSql && !tableSql.includes("'telegram'")) {
+    logger.info("Migrating modes table to add 'telegram' support...");
+
+    // Create new table with updated constraint
+    await client.execute(`
+      CREATE TABLE modes_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        mode TEXT NOT NULL CHECK(mode IN ('email', 'sms', 'call', 'push', 'ical', 'telegram')),
+        address TEXT NOT NULL,
+        is_default INTEGER DEFAULT 0 CHECK(is_default IN (0, 1)),
+        user_id TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, address)
+      )
+    `);
+
+    // Copy data from old table
+    await client.execute(`
+      INSERT INTO modes_new (id, mode, address, is_default, user_id, created_at)
+      SELECT id, mode, address, is_default, user_id, created_at FROM modes
+    `);
+
+    // Drop old table
+    await client.execute("DROP TABLE modes");
+
+    // Rename new table
+    await client.execute("ALTER TABLE modes_new RENAME TO modes");
+
+    // Recreate index
+    await client.execute(`
+      CREATE INDEX idx_modes_user_id ON modes(user_id)
+    `);
+
+    logger.info("Modes table migration completed successfully");
+  }
+} catch (error) {
+  logger.error("Migration failed", {
+    error: error instanceof Error ? error.message : String(error),
+  });
+  throw error;
+}
 
 await client.execute(`
   CREATE TABLE IF NOT EXISTS alerts (

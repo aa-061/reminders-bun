@@ -15,7 +15,10 @@ export const createModeRoute = async ({ body, request, set }: Context) => {
   }
 
   try {
+    logger.info("Creating mode", { body, userId: session.user.id });
     const validated = CreateModeInputSchema.parse(body);
+    logger.info("Validation successful", { validated });
+
     const repository = getModeRepository();
     const mode = await repository.create(session.user.id, validated);
 
@@ -23,6 +26,12 @@ export const createModeRoute = async ({ body, request, set }: Context) => {
     logger.info("Mode created", { id: mode.id, mode: mode.mode, userId: session.user.id });
     return mode;
   } catch (error) {
+    logger.error("Error creating mode", {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      body
+    });
+
     if ((error as Error).name === "ZodError") {
       set.status = 400;
       return {

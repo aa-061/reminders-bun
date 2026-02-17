@@ -11,7 +11,7 @@ export async function handleGetTelegramInfo(): Promise<Response> {
           configured: false,
           message: "Telegram bot not configured",
         },
-        { status: 200 }
+        { status: 200 },
       );
     }
 
@@ -20,10 +20,10 @@ export async function handleGetTelegramInfo(): Promise<Response> {
       botUsername: botInfo.username,
       deepLink: getTelegramDeepLink(),
       instructions: [
-        `1. Click the link or search for @${botInfo.username} in Telegram`,
-        "2. Start a chat with the bot by clicking 'Start'",
-        "3. The bot will send you your Chat ID",
-        "4. Enter your Chat ID in the Reminders app to receive notifications",
+        `Click the link or search for @${botInfo.username} in Telegram`,
+        "Start a chat with the bot by clicking 'Start'",
+        "The bot will send you your Chat ID",
+        "Enter your Chat ID in the Reminders app to receive notifications",
       ],
     });
   } catch (error) {
@@ -32,7 +32,7 @@ export async function handleGetTelegramInfo(): Promise<Response> {
     });
     return Response.json(
       { error: "Failed to get Telegram info" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

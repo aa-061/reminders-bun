@@ -30,7 +30,7 @@ export async function handleTelegramWebhook(
   let update: TelegramUpdate;
 
   try {
-    update = await request.json();
+    update = await request.json() as TelegramUpdate;
   } catch {
     logger.error("Invalid Telegram webhook payload");
     return new Response("Bad Request", { status: 400 });
