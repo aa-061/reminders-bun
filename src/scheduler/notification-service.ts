@@ -1,6 +1,7 @@
 import { sendReminderEmail } from "../email-handlers";
 import { sendTelegramReminder } from "../telegram-handler";
 import { sendPushReminder } from "../push-handler";
+import { sendSmsReminder } from "../sms-handler";
 import { logger } from "../logger";
 import type { TReminder, TReminderMode } from "../schemas";
 
@@ -65,9 +66,14 @@ export async function sendNotifications(
           break;
 
         case "sms":
-          // Will be implemented in Phase 5
-          logger.warn("SMS notifications not yet implemented", {
+          logger.info("Sending SMS notification", {
             reminderId: reminder.id,
+            to: contact.address,
+          });
+          await sendSmsReminder(contact.address, reminder, alertName);
+          logger.info("SMS notification sent", {
+            reminderId: reminder.id,
+            to: contact.address,
           });
           break;
 

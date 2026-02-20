@@ -176,3 +176,22 @@ await client.execute(`
   CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id
   ON push_subscriptions(user_id)
 `);
+
+// Google Calendar OAuth tokens table
+await client.execute(`
+  CREATE TABLE IF NOT EXISTS google_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL UNIQUE,
+    access_token TEXT NOT NULL,
+    refresh_token TEXT,
+    expiry_date INTEGER,
+    scope TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+await client.execute(`
+  CREATE INDEX IF NOT EXISTS idx_google_tokens_user_id
+  ON google_tokens(user_id)
+`);

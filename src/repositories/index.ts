@@ -11,6 +11,8 @@ import type { IAlertPresetRepository } from "./alert-preset-repository.interface
 import { SQLiteAlertPresetRepository } from "./sqlite-alert-preset-repository";
 import type { IPushSubscriptionRepository } from "./push-subscription-repository.interface";
 import { SQLitePushSubscriptionRepository } from "./sqlite-push-subscription-repository";
+import type { GoogleTokenRepository } from "./google-token-repository.interface";
+import { SqliteGoogleTokenRepository } from "./sqlite-google-token-repository";
 
 let repository: IReminderRepository | null = null;
 let appSettingsRepository: IAppSettingsRepository | null = null;
@@ -18,6 +20,7 @@ let authSchemaRepository: IAuthSchemaRepository | null = null;
 let modeRepository: IModeRepository | null = null;
 let alertPresetRepository: IAlertPresetRepository | null = null;
 let pushSubscriptionRepository: IPushSubscriptionRepository | null = null;
+let googleTokenRepository: GoogleTokenRepository | null = null;
 
 export function getReminderRepository(): IReminderRepository {
   if (!repository) {
@@ -61,9 +64,17 @@ export function getPushSubscriptionRepository(): IPushSubscriptionRepository {
   return pushSubscriptionRepository;
 }
 
+export function getGoogleTokenRepository(): GoogleTokenRepository {
+  if (!googleTokenRepository) {
+    googleTokenRepository = new SqliteGoogleTokenRepository(client);
+  }
+  return googleTokenRepository;
+}
+
 export type { IReminderRepository };
 export type { IAppSettingsRepository };
 export type { IAuthSchemaRepository };
 export type { IModeRepository };
 export type { IAlertPresetRepository };
 export type { IPushSubscriptionRepository };
+export type { GoogleTokenRepository };

@@ -22,6 +22,14 @@ import {
   handleGetSubscriptions,
   handleTestPush,
 } from "./push-subscription";
+import { handleSmsStatus, handleSmsValidate } from "./sms-validate";
+import {
+  handleGoogleStatus,
+  handleGoogleAuth,
+  handleGoogleCallback,
+  handleGoogleDisconnect,
+  handleGoogleSync,
+} from "./google-calendar";
 
 export const routes = {
   getReminderByIdRoute,
@@ -48,5 +56,13 @@ export {
   handlePushUnsubscribe,
   handleGetSubscriptions,
   handleTestPush,
+};
+export { handleSmsStatus, handleSmsValidate };
+export {
+  handleGoogleStatus,
+  handleGoogleAuth,
+  handleGoogleCallback,
+  handleGoogleDisconnect,
+  handleGoogleSync,
 };
 export * from "./route-helpers";

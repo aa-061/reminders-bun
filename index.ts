@@ -11,6 +11,13 @@ import {
   handlePushUnsubscribe,
   handleGetSubscriptions,
   handleTestPush,
+  handleSmsStatus,
+  handleSmsValidate,
+  handleGoogleStatus,
+  handleGoogleAuth,
+  handleGoogleCallback,
+  handleGoogleDisconnect,
+  handleGoogleSync,
 } from "./src/route-handlers";
 import { webhookReminderAlertRoute } from "./src/route-handlers/webhook-reminder-alert";
 import { webhookCleanupRoute } from "./src/route-handlers/webhook-cleanup";
@@ -109,6 +116,15 @@ export const app = new Elysia()
   // Telegram bot info endpoint (public)
   .get("/api/telegram/info", handleGetTelegramInfo)
 
+  // SMS routes
+  .get("/api/sms/status", handleSmsStatus) // Public
+
+  .group("/api/sms", (app) =>
+    app
+      .onBeforeHandle(requireAuth)
+      .post("/validate", handleSmsValidate)
+  )
+
   // Push notification routes
   .get("/api/push/vapid-public-key", handleGetVapidKey) // Public
 
@@ -119,6 +135,18 @@ export const app = new Elysia()
       .post("/unsubscribe", handlePushUnsubscribe)
       .get("/subscriptions", handleGetSubscriptions)
       .post("/test", handleTestPush)
+  )
+
+  // Google Calendar routes
+  .get("/api/google/callback", handleGoogleCallback) // Public (OAuth callback)
+
+  .group("/api/google", (app) =>
+    app
+      .onBeforeHandle(requireAuth)
+      .get("/status", handleGoogleStatus)
+      .get("/auth", handleGoogleAuth)
+      .post("/disconnect", handleGoogleDisconnect)
+      .post("/sync/:id", handleGoogleSync)
   )
 
   // ============ PROTECTED ROUTES ============
