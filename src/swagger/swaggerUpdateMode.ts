@@ -6,10 +6,10 @@ export const swaggerUpdateMode = {
       "Updates an existing notification mode. All fields are optional. Setting isDefault to true will clear the default flag from other modes.",
     parameters: [
       {
-        in: "path",
+        in: "path" as const,
         name: "id",
         required: true,
-        schema: { type: "integer" },
+        schema: { type: "integer" as const },
         description: "Mode ID",
       },
     ],

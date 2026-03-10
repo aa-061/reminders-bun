@@ -7,10 +7,10 @@ export const swaggerDeleteAlertPreset = {
     parameters: [
       {
         name: "id",
-        in: "path",
+        in: "path" as const,
         required: true,
         description: "Alert preset ID",
-        schema: { type: "integer" },
+        schema: { type: "integer" as const },
       },
     ],
     responses: {

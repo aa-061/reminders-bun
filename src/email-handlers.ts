@@ -153,6 +153,7 @@ export function generateReminderEmailHtml(
   alertName?: string,
 ): string {
   const eventDate = new Date(reminder.date);
+  const appUrl = process.env.CORS_ORIGIN;
 
   // Validate date before formatting
   if (isNaN(eventDate.getTime())) {
@@ -262,6 +263,20 @@ export function generateReminderEmailHtml(
         .calendar-note strong {
           color: #047857;
         }
+        .view-reminder-btn {
+          display: inline-block;
+          background-color: #4f46e5;
+          color: #ffffff;
+          padding: 12px 24px;
+          border-radius: 6px;
+          text-decoration: none;
+          font-weight: 600;
+          font-size: 14px;
+          margin-top: 20px;
+        }
+        .view-reminder-btn:hover {
+          background-color: #4338ca;
+        }
       </style>
     </head>
     <body>
@@ -307,6 +322,16 @@ export function generateReminderEmailHtml(
             ? `
         <div class="description">
           <p style="margin: 0;">${reminder.description.replace(/\n/g, "<br>")}</p>
+        </div>
+        `
+            : ""
+        }
+
+        ${
+          appUrl
+            ? `
+        <div style="text-align: center; margin-top: 24px;">
+          <a href="${appUrl}/reminders/${reminder.id}/edit" class="view-reminder-btn">View Reminder</a>
         </div>
         `
             : ""
@@ -380,6 +405,7 @@ export async function sendReminderEmail(
   const html = generateReminderEmailHtml(reminder, alertName);
 
   // Generate plain text version
+  const appUrl = process.env.CORS_ORIGIN;
   const text = `
 ${reminder.title}
 ${alertName ? `Alert: ${alertName}` : ""}
@@ -387,6 +413,7 @@ ${alertName ? `Alert: ${alertName}` : ""}
 Date: ${new Date(reminder.date).toLocaleString()}
 ${reminder.location ? `Location: ${reminder.location}` : ""}
 ${reminder.description ? `\n${reminder.description}` : ""}
+${appUrl ? `\nView Reminder: ${appUrl}/reminders/${reminder.id}/edit` : ""}
 
 ---
 This reminder was sent by Reminders App

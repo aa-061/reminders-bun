@@ -60,17 +60,20 @@ export const app = new Elysia()
       // Common with health checks, favicon requests, etc.
       logger.debug("Route not found", {
         path: new URL(request.url).pathname,
-        method: request.method
+        method: request.method,
       });
       set.status = 404;
-      return { error: "Not Found", message: "The requested resource was not found" };
+      return {
+        error: "Not Found",
+        message: "The requested resource was not found",
+      };
     }
 
     // Log actual server errors
     logger.error("Unhandled error", {
       message: (error as Error).message,
       stack: (error as Error).stack,
-      path: new URL(request.url).pathname
+      path: new URL(request.url).pathname,
     });
     set.status = 500;
 
@@ -89,9 +92,9 @@ export const app = new Elysia()
       health: "/health",
       auth: "/api/auth/*",
       reminders: "/reminders",
-      docs: "/swagger"
+      docs: "/swagger",
     },
-    message: "Use /swagger for API documentation"
+    message: "Use /swagger for API documentation",
   }))
 
   .get("/health", () => ({
@@ -120,9 +123,7 @@ export const app = new Elysia()
   .get("/api/sms/status", handleSmsStatus) // Public
 
   .group("/api/sms", (app) =>
-    app
-      .onBeforeHandle(requireAuth)
-      .post("/validate", handleSmsValidate)
+    app.onBeforeHandle(requireAuth).post("/validate", handleSmsValidate),
   )
 
   // Push notification routes
@@ -134,7 +135,7 @@ export const app = new Elysia()
       .post("/subscribe", handlePushSubscribe)
       .post("/unsubscribe", handlePushUnsubscribe)
       .get("/subscriptions", handleGetSubscriptions)
-      .post("/test", handleTestPush)
+      .post("/test", handleTestPush),
   )
 
   // Google Calendar routes
@@ -146,7 +147,7 @@ export const app = new Elysia()
       .get("/status", handleGoogleStatus)
       .get("/auth", handleGoogleAuth)
       .post("/disconnect", handleGoogleDisconnect)
-      .post("/sync/:id", handleGoogleSync)
+      .post("/sync/:id", handleGoogleSync),
   )
 
   // ============ PROTECTED ROUTES ============
@@ -156,7 +157,11 @@ export const app = new Elysia()
       .onBeforeHandle(requireAuth)
       .get("/", routes.getActiveRemindersRoute, s.swaggerActiveReminders)
       .get("/all", routes.getAllRemindersRoute, s.swaggerAllReminders)
-      .delete("/bulk", routes.deleteRemindersBulkRoute, s.swaggerDeleteRemindersBulk)
+      .delete(
+        "/bulk",
+        routes.deleteRemindersBulkRoute,
+        s.swaggerDeleteRemindersBulk,
+      )
       .get("/:id", routes.getReminderByIdRoute, s.swaggerGetReminderById)
       .post("/", routes.createReminderRoute, s.swaggerCreateReminder)
       .put("/:id", routes.updateReminderRoute, s.swaggerUpdateReminder)
@@ -178,7 +183,11 @@ export const app = new Elysia()
       .get("/", routes.getAlertPresetsRoute, s.swaggerGetAlertPresets)
       .post("/", routes.createAlertPresetRoute, s.swaggerCreateAlertPreset)
       .put("/:id", routes.updateAlertPresetRoute, s.swaggerUpdateAlertPreset)
-      .delete("/:id", routes.deleteAlertPresetRoute, s.swaggerDeleteAlertPreset),
+      .delete(
+        "/:id",
+        routes.deleteAlertPresetRoute,
+        s.swaggerDeleteAlertPreset,
+      ),
   )
 
   .listen(PORT || 8080);

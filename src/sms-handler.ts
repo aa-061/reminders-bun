@@ -91,7 +91,7 @@ function formatReminderMessage(
 
   // Add deep link if app URL is configured
   if (appUrl) {
-    message += `\n\n${appUrl}/reminders/${reminder.id}`;
+    message += `\n\n${appUrl}/reminders/${reminder.id}/edit`;
   }
 
   return message;

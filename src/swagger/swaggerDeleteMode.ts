@@ -6,10 +6,10 @@ export const swaggerDeleteMode = {
       "Deletes a notification mode. Only the owner can delete their modes.",
     parameters: [
       {
-        in: "path",
+        in: "path" as const,
         name: "id",
         required: true,
-        schema: { type: "integer" },
+        schema: { type: "integer" as const },
         description: "Mode ID",
       },
     ],

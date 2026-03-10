@@ -125,6 +125,13 @@ function formatReminderMessage(
     parts.push(escapeMarkdown(reminder.description));
   }
 
+  // Add link to reminder
+  const appUrl = process.env.CORS_ORIGIN;
+  if (appUrl) {
+    parts.push("");
+    parts.push(`🔗 [View Reminder](${appUrl}/reminders/${reminder.id}/edit)`);
+  }
+
   return parts.join("\n");
 }
 
