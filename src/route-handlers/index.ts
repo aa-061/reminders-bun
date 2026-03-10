@@ -1,4 +1,5 @@
 import { createReminderRoute } from "./create-reminder";
+import { importIcsRoute } from "./import-ics";
 import { deleteReminderRoute } from "./delete-reminder";
 import { deleteRemindersBulkRoute } from "./delete-reminders-bulk";
 import { getActiveRemindersRoute } from "./get-active-reminders";
@@ -34,6 +35,7 @@ import {
 export const routes = {
   getReminderByIdRoute,
   createReminderRoute,
+  importIcsRoute,
   updateReminderRoute,
   deleteReminderRoute,
   deleteRemindersBulkRoute,

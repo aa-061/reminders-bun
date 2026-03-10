@@ -164,6 +164,7 @@ export const app = new Elysia()
       )
       .get("/:id", routes.getReminderByIdRoute, s.swaggerGetReminderById)
       .post("/", routes.createReminderRoute, s.swaggerCreateReminder)
+      .post("/import-ics", routes.importIcsRoute, s.swaggerImportIcs)
       .put("/:id", routes.updateReminderRoute, s.swaggerUpdateReminder)
       .delete("/:id", routes.deleteReminderRoute, s.swaggerDeleteReminder),
   )

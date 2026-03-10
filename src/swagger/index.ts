@@ -63,6 +63,7 @@ export * from "./swaggerCreateReminder";
 export * from "./swaggerUpdateReminder";
 export * from "./swaggerDeleteReminder";
 export * from "./swaggerDeleteRemindersBulk";
+export * from "./swaggerImportIcs";
 export * from "./swaggerGetModes";
 export * from "./swaggerCreateMode";
 export * from "./swaggerUpdateMode";
